@@ -258,9 +258,9 @@ public class DoorOperationService : IDoorOperationService
             if (_transportRegistry != null)
             {
                 var wsTransport = _transportRegistry.GetTransport<CodeMaster.Core.Transports.ILockTransport>("zwave_ws");
-                if (wsTransport != null && wsTransport.IsConnected)
+                if (wsTransport != null && wsTransport.IsConnected && !string.IsNullOrEmpty(target) && CodeMaster.Engine.Transports.ZWaveWebSocketTransport.TryParseNodeId(target, out var nodeId))
                 {
-                    return new CodeMaster.Engine.Transports.TransportLockProviderAdapter(wsTransport, target ?? door.Id);
+                    return new CodeMaster.Engine.Transports.TransportLockProviderAdapter(wsTransport, nodeId.ToString());
                 }
 
                 var mqttTransport = _transportRegistry.GetTransport<CodeMaster.Core.Transports.ILockTransport>("zwave_mqtt");

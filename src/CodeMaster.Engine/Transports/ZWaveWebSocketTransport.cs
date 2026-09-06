@@ -116,7 +116,7 @@ public class ZWaveWebSocketTransport : ILockTransport, IKeypadTransport
 
     public async Task<bool> SetLockStateAsync(string deviceTarget, bool locked, CancellationToken ct = default)
     {
-        if (!int.TryParse(deviceTarget, out var nodeId))
+        if (!TryParseNodeId(deviceTarget, out var nodeId))
         {
             _logger.LogWarning("Invalid device target for Z-Wave node: '{Target}'", deviceTarget);
             return false;
@@ -142,6 +142,28 @@ public class ZWaveWebSocketTransport : ILockTransport, IKeypadTransport
             OnLockStateChanged?.Invoke(new LockStateUpdatedEventArgs(deviceTarget, newState, "CodeMaster"));
             return true;
         }
+
+        return false;
+    }
+
+    public static bool TryParseNodeId(string target, out int nodeId)
+    {
+        nodeId = 0;
+        if (string.IsNullOrWhiteSpace(target)) return false;
+        if (int.TryParse(target, out nodeId)) return true;
+
+        var clean = target.Trim().Trim('/');
+        if (clean.StartsWith("zwave/", StringComparison.OrdinalIgnoreCase))
+            clean = clean["zwave/".Length..];
+        if (clean.StartsWith("node_", StringComparison.OrdinalIgnoreCase))
+            clean = clean["node_".Length..];
+        if (clean.StartsWith("node-", StringComparison.OrdinalIgnoreCase))
+            clean = clean["node-".Length..];
+
+        if (int.TryParse(clean, out nodeId)) return true;
+
+        var digits = new string(clean.Where(char.IsDigit).ToArray());
+        if (!string.IsNullOrEmpty(digits) && int.TryParse(digits, out nodeId)) return true;
 
         return false;
     }

@@ -1,10 +1,12 @@
 using CodeMaster.Core.Interfaces;
+using CodeMaster.Core.Transports;
 using CodeMaster.Data.Db;
 using CodeMaster.Data.Repositories;
 using CodeMaster.Engine.Channels;
 using CodeMaster.Engine.Mqtt;
 using CodeMaster.Engine.Security;
 using CodeMaster.Engine.Services;
+using CodeMaster.Engine.Transports;
 using CodeMaster.Mcp;
 using CodeMaster.Web.Middleware;
 
@@ -51,6 +53,9 @@ builder.Services.AddScoped<ICredentialRepository, CredentialRepository>();
 builder.Services.AddScoped<IAccessPolicyRepository, AccessPolicyRepository>();
 builder.Services.AddScoped<IAuditLogRepository, AuditLogRepository>();
 builder.Services.AddScoped<IHardwareSlotRepository, HardwareSlotRepository>();
+builder.Services.AddScoped<ISettingsRepository, SettingsRepository>();
+builder.Services.AddScoped<SystemSettingsService>();
+builder.Services.AddSingleton<ITransportRegistry, TransportRegistry>();
 
 // MQTT Channel & Client Services
 builder.Services.Configure<MqttOptions>(builder.Configuration.GetSection("Mqtt"));
@@ -90,6 +95,29 @@ using (var scope = app.Services.CreateScope())
 {
     var seeder = scope.ServiceProvider.GetRequiredService<DatabaseSeederService>();
     await seeder.InitializeAsync();
+
+    try
+    {
+        var settingsService = scope.ServiceProvider.GetRequiredService<SystemSettingsService>();
+        var settings = await settingsService.GetSettingsAsync();
+
+        var registry = scope.ServiceProvider.GetRequiredService<ITransportRegistry>();
+        var loggerFactory = scope.ServiceProvider.GetRequiredService<ILoggerFactory>();
+        var mqtt = scope.ServiceProvider.GetService<IMqttClientService>();
+
+        registry.RegisterTransport(new ZWaveMqttTransport(mqtt, settings.ZWaveMqttPrefix, loggerFactory.CreateLogger<ZWaveMqttTransport>()));
+
+        if (settings.ZWaveTransportType.Equals("WebSocket", StringComparison.OrdinalIgnoreCase))
+        {
+            var wsTransport = new ZWaveWebSocketTransport(settings.ZWaveWebSocketUrl, loggerFactory.CreateLogger<ZWaveWebSocketTransport>());
+            registry.RegisterTransport(wsTransport);
+            _ = wsTransport.StartAsync(CancellationToken.None);
+        }
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"[Warning] Failed to initialize hardware transports: {ex.Message}");
+    }
 }
 
 // Forward-auth headers middleware (Remote-User, Remote-Groups)
