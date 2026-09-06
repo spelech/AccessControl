@@ -32,6 +32,7 @@ public class UsersController : ControllerBase
     private readonly ICredentialRepository _credentialRepo;
     private readonly IAccessPolicyRepository _policyRepo;
     private readonly IHardwareSlotRepository _slotRepo;
+    private readonly IAccessPointRepository _doorRepo;
     private readonly ILogger<UsersController> _logger;
 
     public UsersController(
@@ -39,12 +40,14 @@ public class UsersController : ControllerBase
         ICredentialRepository credentialRepo,
         IAccessPolicyRepository policyRepo,
         IHardwareSlotRepository slotRepo,
+        IAccessPointRepository doorRepo,
         ILogger<UsersController> logger)
     {
         _userRepo = userRepo;
         _credentialRepo = credentialRepo;
         _policyRepo = policyRepo;
         _slotRepo = slotRepo;
+        _doorRepo = doorRepo;
         _logger = logger;
     }
 
@@ -190,18 +193,22 @@ public class UsersController : ControllerBase
             }
             await _policyRepo.InsertAsync(request.Policy, ct);
 
-            if (request.DoorIds != null)
+            var targetDoors = request.DoorIds;
+            if (targetDoors == null || targetDoors.Count == 0)
             {
-                foreach (var doorId in request.DoorIds)
+                var allDoors = await _doorRepo.GetAllAsync(ct);
+                targetDoors = allDoors.Select(d => d.Id).ToList();
+            }
+
+            foreach (var doorId in targetDoors)
+            {
+                var assignment = new AccessAssignment
                 {
-                    var assignment = new AccessAssignment
-                    {
-                        AccessPointId = doorId,
-                        UserId = user.Id,
-                        PolicyId = request.Policy.Id
-                    };
-                    await _policyRepo.AssignPolicyAsync(assignment, ct);
-                }
+                    AccessPointId = doorId,
+                    UserId = user.Id,
+                    PolicyId = request.Policy.Id
+                };
+                await _policyRepo.AssignPolicyAsync(assignment, ct);
             }
         }
 
@@ -329,7 +336,33 @@ public class UsersController : ControllerBase
         }
         else
         {
-            await _policyRepo.UpdateAsync(policy, ct);
+            var existingPolicy = await _policyRepo.GetByIdAsync(policy.Id, ct);
+            if (existingPolicy == null)
+            {
+                await _policyRepo.InsertAsync(policy, ct);
+            }
+            else
+            {
+                await _policyRepo.UpdateAsync(policy, ct);
+            }
+        }
+
+        var targetDoors = policy.DoorIds;
+        if (targetDoors == null || targetDoors.Count == 0)
+        {
+            var allDoors = await _doorRepo.GetAllAsync(ct);
+            targetDoors = allDoors.Select(d => d.Id).ToList();
+        }
+
+        foreach (var doorId in targetDoors)
+        {
+            var assignment = new AccessAssignment
+            {
+                AccessPointId = doorId,
+                UserId = user.Id,
+                PolicyId = policy.Id
+            };
+            await _policyRepo.AssignPolicyAsync(assignment, ct);
         }
 
         return Ok(policy);

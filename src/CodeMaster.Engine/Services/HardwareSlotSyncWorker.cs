@@ -73,7 +73,7 @@ public class HardwareSlotSyncWorker : IHardwareSlotSyncWorker
 
             var credentials = await _credentialRepository.GetByUserIdAsync(user.Id, cancellationToken);
             var pinCred = credentials.FirstOrDefault(c => c.Type == CredentialType.PIN &&
-                (!string.IsNullOrEmpty(c.EncryptedValue) || !string.IsNullOrEmpty(c.HashedValue)));
+                !string.IsNullOrWhiteSpace(c.EncryptedValue) && c.EncryptedValue.All(char.IsAsciiDigit));
 
             if (pinCred != null)
             {
@@ -112,8 +112,14 @@ public class HardwareSlotSyncWorker : IHardwareSlotSyncWorker
         // 2. Add or update desired slots
         foreach (var (user, cred) in desiredAssignments)
         {
+            var pinCode = cred.EncryptedValue;
+            if (string.IsNullOrWhiteSpace(pinCode) || pinCode.Length < 4 || pinCode.Length > 10 || !pinCode.All(char.IsAsciiDigit))
+            {
+                _logger?.LogWarning("Skipping hardware slot sync for user {UserName}: valid numeric PIN code unavailable", user.Name);
+                continue;
+            }
+
             var existingSlot = currentSlots.FirstOrDefault(s => s.UserId == user.Id && s.CredentialId == cred.Id);
-            var pinCode = !string.IsNullOrEmpty(cred.EncryptedValue) ? cred.EncryptedValue : cred.HashedValue;
 
             if (existingSlot != null)
             {

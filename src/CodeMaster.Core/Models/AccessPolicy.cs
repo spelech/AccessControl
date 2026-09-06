@@ -27,6 +27,7 @@ public class AccessPolicy
     public DateTime? ValidUntil { get; set; }
     public int? RemainingUses { get; set; }
     public bool IsEnabled { get; set; } = true;
+    public List<string>? DoorIds { get; set; }
 
     /// <summary>
     /// Evaluates if the policy is active at the specified UTC time.

@@ -50,7 +50,8 @@ public sealed class MqttOptions
         "zwave/#",
         "ring/#",
         "zigbee2mqtt/#",
-        "homeassistant/#"
+        "homeassistant/#",
+        "codemaster/#"
     ];
 
     /// <summary>
