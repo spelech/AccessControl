@@ -2,6 +2,14 @@
 
 All notable changes to the CodeMaster Home Assistant Add-on will be documented in this file.
 
+## [1.3.0] - 2026-09-06
+
+### Added
+- Real-time live activity audit streaming via Server-Sent Events (`EventSource`) at `/api/logs/stream` integrated with Zustand `useAuditStore`.
+- Home Assistant dynamic Ingress reverse-proxy integration with automated `<meta name="base-path">` and `<base href>` runtime HTML injection.
+- Home Assistant Add-on `/data/options.json` configuration ingestion mapping `mqtt_host`, `mqtt_port`, `mqtt_username`, and `mqtt_password` directly to engine options.
+- Manual lock/unlock audit event dispatch to `INotificationDispatcher` (Apprise) with typed client constructor resolution.
+
 ## [1.2.0] - 2026-09-06
 
 ### Added

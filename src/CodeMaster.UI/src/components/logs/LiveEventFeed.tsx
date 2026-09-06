@@ -15,12 +15,23 @@ import { useDoorStore } from '../../stores/useDoorStore';
 import type { AccessEventType, AccessMethod } from '../../types';
 
 export const LiveEventFeed: React.FC = () => {
-  const { logs, filter, isLoading, isLive, fetchLogs, setFilter, toggleLive } = useAuditStore();
+  const { logs, filter, isLoading, isLive, fetchLogs, setFilter, toggleLive, startLiveStream, stopLiveStream } = useAuditStore();
   const { doors } = useDoorStore();
 
   useEffect(() => {
     fetchLogs();
   }, [fetchLogs]);
+
+  useEffect(() => {
+    if (isLive) {
+      startLiveStream();
+    } else {
+      stopLiveStream();
+    }
+    return () => {
+      stopLiveStream();
+    };
+  }, [isLive, startLiveStream, stopLiveStream]);
 
   const getEventBadge = (eventType: AccessEventType) => {
     switch (eventType) {

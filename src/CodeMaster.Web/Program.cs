@@ -10,6 +10,34 @@ using CodeMaster.Web.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Home Assistant Add-on options ingestion
+const string haOptionsPath = "/data/options.json";
+if (File.Exists(haOptionsPath))
+{
+    try
+    {
+        using var stream = File.OpenRead(haOptionsPath);
+        using var doc = System.Text.Json.JsonDocument.Parse(stream);
+        var root = doc.RootElement;
+
+        var inMemoryConfig = new Dictionary<string, string?>();
+        if (root.TryGetProperty("mqtt_host", out var h) && !string.IsNullOrWhiteSpace(h.GetString()))
+            inMemoryConfig["Mqtt:Host"] = h.GetString();
+        if (root.TryGetProperty("mqtt_port", out var p))
+            inMemoryConfig["Mqtt:Port"] = p.GetInt32().ToString();
+        if (root.TryGetProperty("mqtt_username", out var u) && !string.IsNullOrWhiteSpace(u.GetString()))
+            inMemoryConfig["Mqtt:Username"] = u.GetString();
+        if (root.TryGetProperty("mqtt_password", out var pw) && !string.IsNullOrWhiteSpace(pw.GetString()))
+            inMemoryConfig["Mqtt:Password"] = pw.GetString();
+
+        builder.Configuration.AddInMemoryCollection(inMemoryConfig);
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"[Warning] Failed to parse {haOptionsPath}: {ex.Message}");
+    }
+}
+
 // Connection & Database Services
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? "Data Source=codemaster.db";
@@ -66,6 +94,36 @@ using (var scope = app.Services.CreateScope())
 
 // Forward-auth headers middleware (Remote-User, Remote-Groups)
 app.UseMiddleware<ForwardAuthMiddleware>();
+
+// Home Assistant Ingress Dynamic BasePath & HTML Injection
+app.Use(async (context, next) =>
+{
+    var path = context.Request.Path.Value ?? "";
+    var isHtmlRequest = path == "/" || path == "/index.html" || 
+        (!Path.HasExtension(path) && !path.StartsWith("/api") && !path.StartsWith("/mcp") && !path.StartsWith("/health"));
+
+    if (isHtmlRequest)
+    {
+        var ingressPath = context.Request.Headers["X-Ingress-Path"].FirstOrDefault()?.TrimEnd('/');
+        var wwwroot = app.Environment.WebRootPath ?? Path.Combine(AppContext.BaseDirectory, "wwwroot");
+        var indexPath = Path.Combine(wwwroot, "index.html");
+
+        if (File.Exists(indexPath))
+        {
+            var html = await File.ReadAllTextAsync(indexPath);
+            if (!string.IsNullOrEmpty(ingressPath))
+            {
+                html = html.Replace("<meta name=\"base-path\" content=\"\" />", 
+                    $"<meta name=\"base-path\" content=\"{ingressPath}\" />\n    <base href=\"{ingressPath}/\" />");
+            }
+            context.Response.ContentType = "text/html; charset=utf-8";
+            await context.Response.WriteAsync(html);
+            return;
+        }
+    }
+
+    await next();
+});
 
 // Static files for SPA dashboard
 app.UseDefaultFiles();

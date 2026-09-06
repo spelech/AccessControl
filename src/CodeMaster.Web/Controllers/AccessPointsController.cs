@@ -17,6 +17,7 @@ public class AccessPointsController : ControllerBase
     private readonly IAccessEventBroadcaster _eventBroadcaster;
     private readonly IMqttClientService? _mqttClient;
     private readonly IHomeAssistantDiscoveryService? _haDiscovery;
+    private readonly INotificationDispatcher? _notifier;
     private readonly ILogger<AccessPointsController> _logger;
 
     public AccessPointsController(
@@ -26,7 +27,8 @@ public class AccessPointsController : ControllerBase
         IAccessEventBroadcaster eventBroadcaster,
         ILogger<AccessPointsController> logger,
         IMqttClientService? mqttClient = null,
-        IHomeAssistantDiscoveryService? haDiscovery = null)
+        IHomeAssistantDiscoveryService? haDiscovery = null,
+        INotificationDispatcher? notifier = null)
     {
         _doorRepo = doorRepo;
         _doorOps = doorOps;
@@ -35,6 +37,7 @@ public class AccessPointsController : ControllerBase
         _logger = logger;
         _mqttClient = mqttClient;
         _haDiscovery = haDiscovery;
+        _notifier = notifier;
     }
 
     [HttpGet]
@@ -241,6 +244,11 @@ public class AccessPointsController : ControllerBase
         await _auditRepo.InsertAsync(log, ct);
         _eventBroadcaster.Broadcast(log);
 
+        if (_notifier != null)
+        {
+            _ = _notifier.DispatchAccessEventAsync(log, ct);
+        }
+
         return Ok(new { success = true, lockState = "Unlocked", doorId = id });
     }
 
@@ -271,6 +279,11 @@ public class AccessPointsController : ControllerBase
         };
         await _auditRepo.InsertAsync(log, ct);
         _eventBroadcaster.Broadcast(log);
+
+        if (_notifier != null)
+        {
+            _ = _notifier.DispatchAccessEventAsync(log, ct);
+        }
 
         return Ok(new { success = true, lockState = "Locked", doorId = id });
     }
