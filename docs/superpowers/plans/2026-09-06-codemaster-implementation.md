@@ -6,7 +6,7 @@
 
 **Architecture:** A single Docker container hosting an ASP.NET Core `net10.0` backend with embedded SQLite WAL and Dapper, a decoupled `Channel<MqttInboundMessage>` MQTT ingestion engine, pluggable lock/keypad/sensor providers, Home Assistant MQTT Discovery + Apprise notifications, an embedded Model Context Protocol (MCP) server, and a compiled React 19 + TypeScript + Zustand SPA supporting standalone use and Home Assistant Ingress.
 
-**Tech Stack:** .NET 10 (`net10.0`), C# 13, Dapper, SQLite (WAL mode), MQTTnet 4.x, React 19, TypeScript 5.x, Zustand, Vite, Playwright Layout Inspector, Docker.
+**Tech Stack:** .NET 10 (`net10.0`), C# 13, Dapper, SQLite (WAL mode), MQTTnet 4.x, React 19, TypeScript 5.x, Zustand, Vite, Playwright Layout Inspector, Docker, GitHub Actions (CI + GHCR Package Registry).
 
 ## Global Constraints
 
@@ -18,6 +18,7 @@
 - Strict 4-point Playwright layout audit: `toHaveNoLayoutOverflow`, `toHaveMobileFit`, `toHaveTouchFriendlyTargets({ minSize: 24 })`, `toPassLayoutAudit({ minScore: 85 })`.
 - All C# public services must implement narrow client-focused interfaces (`I*`) for 100% testability.
 - Every async method must accept and propagate a `CancellationToken`.
+- CI/CD must implement the 4-stage quality gate blueprint and publish container images to GitHub Container Registry (GHCR).
 
 ---
 
@@ -552,17 +553,16 @@ Expected: HTTP 200 OK.
 
 ---
 
-### Task 11: Home Assistant Add-on Packaging & Release Verification
+### Task 11: Home Assistant Add-on Packaging
 
 **Files:**
 - Create: `addon/config.yaml`
 - Create: `addon/build.yaml`
 - Create: `addon/DOCS.md`
 - Create: `addon/CHANGELOG.md`
-- Modify: `verify_release.py`
 
 **Interfaces:**
-- Produces: Hass.io add-on specification with Ingress support, complete documentation, and release verification.
+- Produces: Hass.io add-on specification with Ingress support and complete documentation.
 
 - [ ] **Step 1: Create addon/config.yaml**
 
@@ -586,14 +586,48 @@ schema:
   mqtt_port: "int"
 ```
 
-- [ ] **Step 2: Run verify_release.py auditor**
+- [ ] **Step 2: Commit**
+
+`git commit -m "feat(addon): package Home Assistant Add-on with Ingress"`
+
+---
+
+### Task 12: CI/CD Quality Gates & GitHub Container Registry (GHCR) Publishing
+
+**Files:**
+- Create: `.github/workflows/ci.yml`
+- Create: `.github/workflows/codeql.yml`
+- Create: `.github/workflows/docker-publish.yml`
+- Modify: `verify_release.py`
+
+**Interfaces:**
+- Consumes: `standards/CI_CD_PIPELINES.md` and templates from `AgenticEngineeringToolbelt`.
+- Produces: 4-stage GitHub Actions CI gate (release audit, parallel backend/frontend tests, fullstack smoke probe) and multi-arch Docker image publication to `ghcr.io/${{ github.repository }}`.
+
+- [ ] **Step 1: Implement .github/workflows/ci.yml (4-Stage Quality Gate Blueprint)**
+
+Configure stages:
+1. `release-verification`: runs `python3 verify_release.py --ci`.
+2. `backend`: .NET 10 build, xUnit test execution, code coverage collection.
+3. `frontend`: Node 22, strict ESLint (`--max-warnings 0`), Vite build, Vitest, Playwright layout tests.
+4. `smoke`: background process spawn, `/health` probe loop, live handshake.
+
+- [ ] **Step 2: Implement .github/workflows/codeql.yml**
+
+Configure CodeQL static security analysis for `csharp` and `javascript-typescript`.
+
+- [ ] **Step 3: Implement .github/workflows/docker-publish.yml**
+
+Configure multi-platform (`linux/amd64`, `linux/arm64`) container builds via `docker/build-push-action@v5` publishing to `ghcr.io` with SemVer and `latest` tags.
+
+- [ ] **Step 4: Run verify_release.py local verification**
 
 Run: `python3 verify_release.py`  
-Expected: Version sync across all manifests and valid markdown links.
+Verify: SemVer synchronization and markdown link integrity pass cleanly.
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 5: Commit**
 
-`git commit -m "feat(addon): package Home Assistant Add-on with Ingress and verify release"`
+`git commit -m "ci(github): add 4-stage quality gate workflows and GHCR container publishing"`
 
 ---
 
