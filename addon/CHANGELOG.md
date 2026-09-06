@@ -2,6 +2,16 @@
 
 All notable changes to the CodeMaster Home Assistant Add-on will be documented in this file.
 
+## [1.5.0] - 2026-09-06
+
+### Added
+- Pluggable Hardware Entity Transports: Introduced `ITransport`, `ILockTransport`, `IKeypadTransport`, and `ISensorTransport` interfaces with central `ITransportRegistry`.
+- Direct Z-Wave JS Server WebSocket Transport (`ZWaveWebSocketTransport`): Connects directly to `zwave-js-server` via JSON-RPC, eliminating the requirement to enable the MQTT gateway in Z-Wave JS UI.
+- Native Hardware Detection: Validated against physical mesh hardware: Node 18 (August Smart Lock Pro), Node 39 (Schlage BE469ZP Touchscreen Deadbolt), and Node 40 (Ring Keypad v2).
+- Dynamic System Settings Persistence: SQLite `system_settings` table backing `SettingsController` (`GET/PUT /api/settings`, `POST /api/settings/test-connection`) with container environment variable fallbacks and live hot-reconnection.
+- Interactive Settings View & Zustand Store: Real-time segmented transport selector, live WebSocket connection latency & node diagnostic probe, and MQTT credential management.
+- Smart Door Setup Wizard: Auto-populates discovered Z-Wave locks and keypads directly from the active WebSocket session.
+
 ## [1.4.0] - 2026-09-06
 
 ### Added
