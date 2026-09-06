@@ -43,10 +43,12 @@ public class RingMqttKeypadProvider : IKeypadProvider
             return false;
         }
 
-        // Check if topic is a relevant ring alarm/keypad command topic
+        // Check if topic is a relevant ring alarm/keypad command topic or matches configured base topic
         if (!topic.Contains("command", StringComparison.OrdinalIgnoreCase) &&
             !topic.Contains("keypad", StringComparison.OrdinalIgnoreCase) &&
-            !topic.Contains("alarm", StringComparison.OrdinalIgnoreCase))
+            !topic.Contains("alarm", StringComparison.OrdinalIgnoreCase) &&
+            !topic.Contains("kp", StringComparison.OrdinalIgnoreCase) &&
+            !topic.StartsWith(_baseTopic, StringComparison.OrdinalIgnoreCase))
         {
             return false;
         }

@@ -7,6 +7,8 @@
     <Project Path="src/CodeMaster.Web/CodeMaster.Web.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/CodeMaster.Tests.Harness/CodeMaster.Tests.Harness.csproj" />
+    <Project Path="tests/CodeMaster.Tests.Simulator/CodeMaster.Tests.Simulator.csproj" />
     <Project Path="tests/CodeMaster.Tests.Unit/CodeMaster.Tests.Unit.csproj" />
   </Folder>
 </Solution>

@@ -1,0 +1,48 @@
+services:
+  test-mosquitto:
+    image: eclipse-mosquitto:2.0
+    container_name: test-mosquitto
+    restart: unless-stopped
+    command: mosquitto -c /mosquitto-no-auth.conf
+    expose:
+      - "1883"
+    networks:
+      - test-net
+
+  test-codemaster:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: test-codemaster
+    restart: unless-stopped
+    ports:
+      - "8155:8150"
+    environment:
+      - ASPNETCORE_URLS=http://+:8150
+      - ConnectionStrings__DefaultConnection=Data Source=/app/data/codemaster_test.db
+      - Mqtt__Host=test-mosquitto
+      - Mqtt__Port=1883
+      - Mqtt__ClientId=test-codemaster
+    depends_on:
+      - test-mosquitto
+    networks:
+      - test-net
+
+  test-simulator:
+    build:
+      context: .
+      dockerfile: tests/CodeMaster.Tests.Simulator/Dockerfile
+    container_name: test-simulator
+    restart: unless-stopped
+    environment:
+      - MQTT_HOST=test-mosquitto
+      - MQTT_PORT=1883
+      - CLIENT_ID=test-simulator
+    depends_on:
+      - test-mosquitto
+    networks:
+      - test-net
+
+networks:
+  test-net:
+    driver: bridge

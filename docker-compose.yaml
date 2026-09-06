@@ -1,0 +1,27 @@
+services:
+  codemaster:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: codemaster:latest
+    container_name: codemaster
+    restart: unless-stopped
+    ports:
+      - "8150:8150"
+    environment:
+      - ASPNETCORE_URLS=http://+:8150
+      - ConnectionStrings__DefaultConnection=Data Source=/app/data/codemaster.db
+      - Mqtt__Host=10.0.0.10
+      - Mqtt__Port=8100
+      - Mqtt__ClientId=codemaster-prod
+    volumes:
+      - ./data:/app/data
+    networks:
+      - net_smarthome_talk
+      - net_webservices
+
+networks:
+  net_smarthome_talk:
+    external: true
+  net_webservices:
+    external: true
