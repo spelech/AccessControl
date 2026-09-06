@@ -12,7 +12,10 @@ public enum KeypadCapabilities
     StatelessPinEvents = 1 << 1,
     SlottedPinStorage = 1 << 2,
     Backlight = 1 << 3,
-    BatteryReporting = 1 << 4
+    BatteryReporting = 1 << 4,
+
+    SupportsArmModes = ArmDisarm,
+    SupportsPin = StatelessPinEvents
 }
 
 public enum KeypadMode

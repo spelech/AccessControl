@@ -10,7 +10,12 @@ public enum LockCapabilities
     RemoteControl = 1 << 0,
     UserCodes = 1 << 1,
     AutoLock = 1 << 2,
-    JamDetection = 1 << 3
+    JamDetection = 1 << 3,
+
+    SupportsHardwareSlots = UserCodes,
+    SupportsRemoteLock = RemoteControl,
+    SupportsRemoteUnlock = RemoteControl,
+    SupportsJammedReport = JamDetection
 }
 
 public interface ILockProvider
