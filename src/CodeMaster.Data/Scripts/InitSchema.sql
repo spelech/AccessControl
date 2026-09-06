@@ -64,7 +64,8 @@ CREATE TABLE IF NOT EXISTS AccessPolicies (
     ValidFrom TEXT,                   -- ISO8601 UTC
     ValidUntil TEXT,                  -- ISO8601 UTC
     RemainingUses INTEGER,            -- Decremented on unlock for OneTime schedules
-    IsEnabled INTEGER NOT NULL DEFAULT 1
+    IsEnabled INTEGER NOT NULL DEFAULT 1,
+    TimeZoneId TEXT
 );
 
 -- 5. Access Assignments (User or Group <-> AccessPoint <-> Policy)

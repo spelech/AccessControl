@@ -28,6 +28,15 @@ public class DatabaseSeederService
         using var connection = _connectionFactory.CreateConnection();
         await connection.ExecuteAsync(new CommandDefinition(sql, cancellationToken: ct));
 
+        try
+        {
+            await connection.ExecuteAsync(new CommandDefinition("ALTER TABLE AccessPolicies ADD COLUMN TimeZoneId TEXT;", cancellationToken: ct));
+        }
+        catch
+        {
+            // Column already exists or table was just created with column
+        }
+
         _logger.LogInformation("Database schema initialized successfully.");
     }
 

@@ -11,6 +11,7 @@ public class HardwareSlotSyncWorker : IHardwareSlotSyncWorker
     private readonly IUserRepository _userRepository;
     private readonly ICredentialRepository _credentialRepository;
     private readonly IAccessPolicyRepository _policyRepository;
+    private readonly ICredentialEncryptionService? _encryptionService;
     private readonly ILogger<HardwareSlotSyncWorker>? _logger;
 
     public HardwareSlotSyncWorker(
@@ -18,13 +19,15 @@ public class HardwareSlotSyncWorker : IHardwareSlotSyncWorker
         IUserRepository userRepository,
         ICredentialRepository credentialRepository,
         IAccessPolicyRepository policyRepository,
-        ILogger<HardwareSlotSyncWorker>? logger = null)
+        ILogger<HardwareSlotSyncWorker>? logger = null,
+        ICredentialEncryptionService? encryptionService = null)
     {
         _slotRepository = slotRepository ?? throw new ArgumentNullException(nameof(slotRepository));
         _userRepository = userRepository ?? throw new ArgumentNullException(nameof(userRepository));
         _credentialRepository = credentialRepository ?? throw new ArgumentNullException(nameof(credentialRepository));
         _policyRepository = policyRepository ?? throw new ArgumentNullException(nameof(policyRepository));
         _logger = logger;
+        _encryptionService = encryptionService;
     }
 
     public async Task ReconcileDoorSlotsAsync(
@@ -43,7 +46,7 @@ public class HardwareSlotSyncWorker : IHardwareSlotSyncWorker
         var allUsers = await _userRepository.GetAllAsync(cancellationToken);
         var activeUsers = allUsers.Where(u => u.IsActive).ToList();
 
-        var desiredAssignments = new List<(User User, Credential Credential)>();
+        var desiredAssignments = new List<(User User, Credential Credential, string PinCode)>();
 
         foreach (var user in activeUsers)
         {
@@ -72,12 +75,15 @@ public class HardwareSlotSyncWorker : IHardwareSlotSyncWorker
             }
 
             var credentials = await _credentialRepository.GetByUserIdAsync(user.Id, cancellationToken);
-            var pinCred = credentials.FirstOrDefault(c => c.Type == CredentialType.PIN &&
-                !string.IsNullOrWhiteSpace(c.EncryptedValue) && c.EncryptedValue.All(char.IsAsciiDigit));
-
-            if (pinCred != null)
+            foreach (var c in credentials.Where(c => c.Type == CredentialType.PIN && !string.IsNullOrWhiteSpace(c.EncryptedValue)))
             {
-                desiredAssignments.Add((user, pinCred));
+                var raw = c.EncryptedValue!;
+                var pin = _encryptionService != null ? _encryptionService.Decrypt(raw) : raw;
+                if (!string.IsNullOrWhiteSpace(pin) && pin.Length >= 4 && pin.Length <= 10 && pin.All(char.IsAsciiDigit))
+                {
+                    desiredAssignments.Add((user, c, pin));
+                    break;
+                }
             }
         }
 
@@ -110,14 +116,8 @@ public class HardwareSlotSyncWorker : IHardwareSlotSyncWorker
         currentSlots = (await _slotRepository.GetSlotsForDoorAsync(accessPoint.Id, cancellationToken)).ToList();
 
         // 2. Add or update desired slots
-        foreach (var (user, cred) in desiredAssignments)
+        foreach (var (user, cred, pinCode) in desiredAssignments)
         {
-            var pinCode = cred.EncryptedValue;
-            if (string.IsNullOrWhiteSpace(pinCode) || pinCode.Length < 4 || pinCode.Length > 10 || !pinCode.All(char.IsAsciiDigit))
-            {
-                _logger?.LogWarning("Skipping hardware slot sync for user {UserName}: valid numeric PIN code unavailable", user.Name);
-                continue;
-            }
 
             var existingSlot = currentSlots.FirstOrDefault(s => s.UserId == user.Id && s.CredentialId == cred.Id);
 

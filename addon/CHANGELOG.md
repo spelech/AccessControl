@@ -2,6 +2,14 @@
 
 All notable changes to the CodeMaster Home Assistant Add-on will be documented in this file.
 
+## [1.2.0] - 2026-09-06
+
+### Added
+- Authenticated AES-256-GCM `ICredentialEncryptionService` protecting sensitive PIN credentials at rest with dynamic key derivation and transparent legacy plaintext fallback.
+- Cryptographically salted PIN hashing with constant-time equality verification (`PinSecurityHelper.VerifyPinHash`) preventing timing attacks.
+- Physical Lock Code Revocation on user deletion and MCP revocation (`ClearUserHardwareSlotsAsync`) clearing active lock deadbolt slot codes.
+- Timezone-aware access policy evaluation supporting arbitrary `TimeZoneId` mappings (e.g. `America/Chicago`) for localized recurring schedules.
+
 ## [1.1.0] - 2026-09-06
 
 ### Added

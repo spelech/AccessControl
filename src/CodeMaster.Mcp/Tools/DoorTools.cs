@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using CodeMaster.Core.Interfaces;
 using CodeMaster.Core.Models;
+using CodeMaster.Core.Security;
 using CodeMaster.Data.Repositories;
 using CodeMaster.Mcp.Protocol;
 
@@ -23,6 +24,7 @@ public class DoorTools : IDoorTools
     private readonly IAuditLogRepository _auditRepo;
     private readonly IHardwareSlotRepository _slotRepo;
     private readonly IDoorOperationService? _doorOps;
+    private readonly ICredentialEncryptionService? _encryptionService;
 
     public DoorTools(
         IAccessPointRepository doorRepo,
@@ -31,7 +33,8 @@ public class DoorTools : IDoorTools
         IAccessPolicyRepository policyRepo,
         IAuditLogRepository auditRepo,
         IHardwareSlotRepository slotRepo,
-        IDoorOperationService? doorOps = null)
+        IDoorOperationService? doorOps = null,
+        ICredentialEncryptionService? encryptionService = null)
     {
         _doorRepo = doorRepo;
         _userRepo = userRepo;
@@ -40,6 +43,7 @@ public class DoorTools : IDoorTools
         _auditRepo = auditRepo;
         _slotRepo = slotRepo;
         _doorOps = doorOps;
+        _encryptionService = encryptionService;
     }
 
     public IReadOnlyList<McpToolDefinition> GetToolDefinitions()
@@ -337,16 +341,16 @@ public class DoorTools : IDoorTools
         };
         await _userRepo.InsertAsync(user, ct);
 
-        // 2. Hash PIN with SHA-256
-        var hashBytes = SHA256.HashData(Encoding.UTF8.GetBytes(pin));
-        var hashedHex = Convert.ToHexString(hashBytes).ToLowerInvariant();
+        // 2. Encrypt PIN and compute salted hash
+        var encryptedPin = _encryptionService != null ? _encryptionService.Encrypt(pin) : pin;
+        var saltedHash = PinSecurityHelper.CreateSaltedHash(pin);
 
         var credential = new Credential
         {
             UserId = user.Id,
             Type = CredentialType.PIN,
-            EncryptedValue = pin,
-            HashedValue = hashedHex,
+            EncryptedValue = encryptedPin,
+            HashedValue = saltedHash,
             PinLength = pin.Length,
             Label = "Guest PIN"
         };
@@ -413,16 +417,22 @@ public class DoorTools : IDoorTools
         user.UpdatedAt = DateTime.UtcNow;
         await _userRepo.UpdateAsync(user, ct);
 
-        // Clear any hardware slots allocated to this user
-        var doors = await _doorRepo.GetAllAsync(ct);
         var clearedSlotsCount = 0;
-        foreach (var door in doors)
+        if (_doorOps != null)
         {
-            var slots = await _slotRepo.GetSlotsForDoorAsync(door.Id, ct);
-            foreach (var slot in slots.Where(s => s.UserId == userId))
+            clearedSlotsCount = await _doorOps.ClearUserHardwareSlotsAsync(userId, ct);
+        }
+        else
+        {
+            var doors = await _doorRepo.GetAllAsync(ct);
+            foreach (var door in doors)
             {
-                await _slotRepo.ClearSlotAsync(slot.Id, ct);
-                clearedSlotsCount++;
+                var slots = await _slotRepo.GetSlotsForDoorAsync(door.Id, ct);
+                foreach (var slot in slots.Where(s => s.UserId == userId))
+                {
+                    await _slotRepo.ClearSlotAsync(slot.Id, ct);
+                    clearedSlotsCount++;
+                }
             }
         }
 
