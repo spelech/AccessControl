@@ -1,0 +1,29 @@
+# Build and runtime outputs
+bin/
+obj/
+TestResults/
+dist/
+node_modules/
+
+# Database files
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+
+# IDE and tooling
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Superpowers and scratch
+.superpowers/
+
+# OS files
+.DS_Store
+Thumbs.db
