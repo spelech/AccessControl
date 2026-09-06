@@ -4,6 +4,9 @@ obj/
 TestResults/
 dist/
 node_modules/
+coverage/
+test-results/
+playwright-report/
 
 # Database files
 *.db
