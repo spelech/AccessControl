@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { apiClient } from '../api/apiClient';
+import { apiClient, buildUrl } from '../api/apiClient';
 import type { AccessLog } from '../types';
 
 export interface AuditFilter {
@@ -22,7 +22,11 @@ interface AuditState {
   clearFilter: () => void;
   addLogEvent: (event: AccessLog) => void;
   toggleLive: (enabled?: boolean) => void;
+  startLiveStream: () => void;
+  stopLiveStream: () => void;
 }
+
+let activeEventSource: EventSource | null = null;
 
 export const useAuditStore = create<AuditState>((set, get) => ({
   logs: [],
@@ -69,8 +73,51 @@ export const useAuditStore = create<AuditState>((set, get) => ({
   },
 
   toggleLive: (enabled?: boolean) => {
-    set((state) => ({
-      isLive: enabled !== undefined ? enabled : !state.isLive,
-    }));
+    const next = enabled !== undefined ? enabled : !get().isLive;
+    set({ isLive: next });
+    if (next) {
+      get().startLiveStream();
+    } else {
+      get().stopLiveStream();
+    }
+  },
+
+  startLiveStream: () => {
+    if (typeof window === 'undefined' || typeof EventSource === 'undefined') {
+      return;
+    }
+    if (activeEventSource) {
+      return;
+    }
+
+    try {
+      const streamUrl = buildUrl('/api/logs/stream');
+      activeEventSource = new EventSource(streamUrl);
+
+      activeEventSource.onmessage = (e) => {
+        if (!e.data || e.data.startsWith(':')) return;
+        try {
+          const log = JSON.parse(e.data) as AccessLog;
+          if (log && log.id) {
+            get().addLogEvent(log);
+          }
+        } catch {
+          // Ignore invalid or heartbeat frames
+        }
+      };
+
+      activeEventSource.onerror = () => {
+        // EventSource will automatically attempt reconnection
+      };
+    } catch {
+      // Ignore initial connection errors
+    }
+  },
+
+  stopLiveStream: () => {
+    if (activeEventSource) {
+      activeEventSource.close();
+      activeEventSource = null;
+    }
   },
 }));
