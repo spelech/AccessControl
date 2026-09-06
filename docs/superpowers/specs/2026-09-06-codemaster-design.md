@@ -2,10 +2,11 @@
 ## Universal Access Control & Smart Lock/Keypad Synchronization Platform
 
 **Date**: 2026-09-06  
-**Status**: Draft (Approved for Spec Review)  
+**Status**: Approved for Plan Execution  
 **Author**: Steven T. Pelech & Antigravity  
 **Repository**: `/containers/dev/codemaster`  
 **Target Runtime**: .NET 10 (`net10.0`), React 19, TypeScript (Strict), Vite, SQLite WAL  
+**Deployment Targets**: Standalone Docker Container (Primary / First) & Home Assistant Add-on (Phase 2 Packaging)  
 
 ---
 
@@ -20,9 +21,12 @@
 ### 1.2 The CodeMaster Vision
 **CodeMaster** is an open-source grade, general-purpose access control platform built on the **Frigate architecture pattern**:
 1. **Containerized Core Engine**: All scheduling, hardware slot synchronization, keypad PIN evaluation, auto-lock state machines, and audit logging live inside a high-performance .NET 10 daemon with embedded SQLite WAL.
-2. **100% UI-Driven Configuration**: End users **never touch code or YAML**. Everything—adding doors, pairing keypads, discovering MQTT topics, setting schedules, and managing users—is configured via a modern React 19 web dashboard (accessible standalone or embedded in Home Assistant via Ingress).
-3. **Pluggable, Provider-Agnostic Abstraction**: Supports any lock, any keypad, and any contact sensor across Z-Wave, Zigbee, Ring, Matter, ESPHome, and Home Assistant via capability-based interfaces.
-4. **Lightweight Home Assistant Footprint**: Exposes **3–4 clean entities per door** via standard HA MQTT Discovery (reducing entity bloat by **>98%**) while firing rich events for instant mobile push notifications.
+2. **Dual Deployment Model (Container First, Add-on Ready)**:
+   - **Primary (Container First)**: High-performance Docker container running in Docker Compose or Kubernetes, connecting over MQTT to Mosquitto and exposing port `8150`.
+   - **Secondary (HAOS / Hass.io Add-on)**: Standard Add-on repository structure (`addon/config.yaml`) with native **Home Assistant Ingress** support (`ingress: true`), auto-negotiating the Supervisor MQTT broker.
+3. **100% UI-Driven Configuration**: End users **never touch code or YAML**. Everything—adding doors, pairing keypads, discovering MQTT topics, setting schedules, and managing users—is configured via a modern React 19 web dashboard (accessible standalone or embedded in Home Assistant via Ingress).
+4. **Pluggable, Provider-Agnostic Abstraction**: Supports any lock, any keypad, and any contact sensor across Z-Wave, Zigbee, Ring, Matter, ESPHome, and Home Assistant via capability-based interfaces.
+5. **Lightweight Home Assistant Footprint**: Exposes **3–4 clean entities per door** via standard HA MQTT Discovery (reducing entity bloat by **>98%**) while firing rich events for instant mobile push notifications.
 
 ---
 
@@ -148,8 +152,6 @@ public enum DoorContactState
 
 ## 4. Relational Data Model (SQLite WAL)
 
-The database schema supports flexible, multi-door, multi-credential access with zero hardcoded assumptions:
-
 ```sql
 PRAGMA journal_mode = WAL;
 PRAGMA synchronous = NORMAL;
@@ -268,9 +270,54 @@ CREATE INDEX IF NOT EXISTS idx_assignments_point ON AccessAssignments(AccessPoin
 
 ---
 
-## 5. End-to-End Operational Flows
+## 5. Deployment Architecture: Container-First & Hass.io Add-on Ready
 
-### 5.1 Real-World Setup A: Standalone Keypad + Separate Lock (August + Ring Keypad)
+### 5.1 Mode 1: Standalone Container (Primary / Phase 1)
+- Delivered as a standard Docker image (`codemaster:latest`).
+- Run via Docker Compose:
+  ```yaml
+  services:
+    codemaster:
+      image: codemaster:latest
+      container_name: codemaster
+      restart: unless-stopped
+      environment:
+        - MQTT__Host=mosquitto
+        - MQTT__Port=1883
+        - MQTT__Username=${MQTT_USER}
+        - MQTT__Password=${MQTT_PASS}
+        - Storage__DatabasePath=/app/data/codemaster.db
+        - Apprise__Url=http://10.0.0.10:8000/notify/apprise
+      volumes:
+        - /containers/smarthome_support/codemaster/data:/app/data
+      ports:
+        - "8150:8150"
+      networks:
+        - net_smarthome
+  ```
+
+### 5.2 Mode 2: Home Assistant Add-on (Phase 2 Packaging)
+- Built on top of the exact same underlying Docker image.
+- Add-on packaging structure:
+  ```text
+  addon/
+  ├── config.yaml          # Add-on metadata, arch (amd64, aarch64), ingress: true
+  ├── build.yaml           # Multi-arch base images
+  ├── rootfs/
+  │   └── etc/services.d/  # S6 overlay / startup script reading /data/options.json
+  └── DOCS.md
+  ```
+- **Ingress Support Contract**:
+  - The ASP.NET Core host and React SPA dynamically support `X-Ingress-Path` header rewriting:
+    - Vite configured with relative asset URLs (`base: './'`).
+    - API requests in `apiClient.ts` read `window.__CODEMASTER_BASE_PATH__` (populated from `<meta name="base-path">` or document URI).
+  - This guarantees the exact same image works whether accessed directly at `http://host:8150/` or proxied through Home Assistant's Ingress at `https://homeassistant.local/api/hassio_ingress/<token>/`.
+
+---
+
+## 6. End-to-End Operational Flows
+
+### 6.1 Real-World Setup A: Standalone Keypad + Separate Lock (August + Ring Keypad)
 1. User enters PIN `4821` + `Disarm` on the Ring Keypad outside.
 2. `ring-mqtt` publishes the event to `ring/<location>/alarm/command` (or keypad state topic).
 3. `MqttInboundWorker` ingests the packet into `Channel<MqttInboundMessage>`.
@@ -284,7 +331,7 @@ CREATE INDEX IF NOT EXISTS idx_assignments_point ON AccessAssignments(AccessPoin
    - Dispatches Home Assistant event via MQTT (`event.side_door_access`).
    - Posts webhook alert to Apprise (`apprise.wileyriley.com`) $\to$ *"Steve unlocked Side Door via Ring Keypad"*.
 
-### 5.2 Real-World Setup B: Lock with Built-In Keypad (Schlage Deadbolt)
+### 6.2 Real-World Setup B: Lock with Built-In Keypad (Schlage Deadbolt)
 1. In the Web UI, the user assigns *"Cleaner"* (PIN `9182`, active Wed 9am-1pm) to the Front Door.
 2. `HardwareSlotSyncWorker` allocates an available hardware slot (e.g. Slot 3) on the Schlage lock.
 3. Invokes `ILockProvider.SetSlotCodeAsync()` $\to$ publishes Z-Wave UserCode CC command to `zwave/front_door/user_code/endpoint_0/set`.
@@ -293,7 +340,7 @@ CREATE INDEX IF NOT EXISTS idx_assignments_point ON AccessAssignments(AccessPoin
 6. `MqttInboundWorker` matches Slot 3 $\to$ Cleaner $\to$ records `AccessLogs` and fires notifications.
 7. When Wednesday 1:00 PM passes, `HardwareSlotSyncWorker` detects the expired schedule, invokes `ClearSlotCodeAsync(Slot 3)`, and wipes the code from the physical lock.
 
-### 5.3 Universal Auto-Lock Engine with Door Sensor Intelligence
+### 6.3 Universal Auto-Lock Engine with Door Sensor Intelligence
 - **Trigger**: Lock transitions to `unlocked` (by any method: keypad, manual turn, or RF).
 - **Contact Check**: Queries the configured `IDoorSensorProvider`:
   - If the door is **Open**: Auto-lock countdown is suspended. UI displays an amber badge: *"Auto-Lock paused: Door is open"*.
@@ -306,7 +353,7 @@ CREATE INDEX IF NOT EXISTS idx_assignments_point ON AccessAssignments(AccessPoin
 
 ---
 
-## 6. Frontend Architecture & 100% UI-Driven UX
+## 7. Frontend Architecture & 100% UI-Driven UX
 
 Built with **React 19 + TypeScript (strict) + Zustand + Vite** and pure CSS custom properties (`theme.css`).
 
@@ -330,7 +377,7 @@ flowchart LR
     LogsView --> useAuditStore
 ```
 
-### 6.1 Interactive UI Wizards (Zero YAML / Zero Code for Users)
+### 7.1 Interactive UI Wizards (Zero YAML / Zero Code for Users)
 1. **Add/Edit Door Wizard**:
    - Step 1: Door Name (e.g. *"Front Door"*).
    - Step 2: Lock Type dropdown (`Z-Wave JS UI`, `Zigbee2MQTT`, `Generic MQTT`, `Virtual Deadbolt`).
@@ -349,7 +396,7 @@ flowchart LR
 
 ---
 
-## 7. Home Assistant Integration (The Frigate Pattern)
+## 8. Home Assistant Integration (The Frigate Pattern)
 
 CodeMaster communicates with Home Assistant via standard **HA MQTT Discovery**, requiring zero custom integration install for basic operation:
 For each configured `AccessPoint`:
@@ -371,7 +418,7 @@ For each configured `AccessPoint`:
 
 ---
 
-## 8. Model Context Protocol (MCP) Server Integration
+## 9. Model Context Protocol (MCP) Server Integration
 
 Following Tenet 9, CodeMaster exposes an integrated MCP server at `/mcp/sse`:
 | Tool Name | Parameters | Description |
@@ -385,7 +432,7 @@ Following Tenet 9, CodeMaster exposes an integrated MCP server at `/mcp/sse`:
 
 ---
 
-## 9. Docker Stack for Live Integration Testing
+## 10. Docker Stack for Live Integration Testing
 
 A dedicated test environment (`docker-compose.test.yaml`) enables continuous automated integration testing without physical hardware:
 
@@ -416,7 +463,7 @@ flowchart LR
 
 ---
 
-## 10. Solution Layout & File Structure
+## 11. Solution Layout & File Structure
 
 ```text
 /containers/dev/codemaster/
@@ -428,6 +475,9 @@ flowchart LR
 ├── commit.sh                        # Atomic commit and version buster script
 ├── verify_release.py                # Release auditor and markdown link checker
 ├── ARCHITECTURE.md                  # Living documentation with Mermaid topologies
+├── addon/                           # Hass.io Add-on packaging (Phase 2)
+│   ├── config.yaml
+│   └── build.yaml
 ├── docs/
 │   └── superpowers/specs/
 │       └── 2026-09-06-codemaster-design.md
@@ -457,8 +507,9 @@ flowchart LR
 
 ---
 
-## 11. Spec Self-Review Checklist
+## 12. Spec Self-Review Checklist
 - [x] **Placeholder Scan**: No "TBD" or "TODO" markers present.
+- [x] **Dual Deployment Model**: Container-first delivery specified with explicit Hass.io add-on packaging and Ingress base path handling.
 - [x] **Internal Consistency**: Provider abstraction cleanly isolates lock, keypad, and sensor implementations while fully covering Schlage, August, and Ring Keypad via configuration.
 - [x] **Zero Code/YAML for Users**: All device pairing, schedules, and user management are strictly UI-driven.
 - [x] **Scope Check**: Tightly scoped to access control, multi-protocol synchronization, auto-lock, notifications, and lightweight HA integration.
