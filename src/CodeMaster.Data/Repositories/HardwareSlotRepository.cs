@@ -104,6 +104,7 @@ public class HardwareSlotRepository : IHardwareSlotRepository
             UPDATE HardwareSlots
             SET UserId = NULL,
                 CredentialId = NULL,
+                SyncStatus = 'Synced',
                 LastSyncedAt = @LastSyncedAt
             WHERE Id = @Id;";
 

@@ -29,6 +29,7 @@ builder.Services.AddSingleton<IMqttInboundChannel, MqttInboundChannel>();
 builder.Services.AddSingleton<MqttClientService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<MqttClientService>());
 builder.Services.AddSingleton<IMqttClientService>(sp => sp.GetRequiredService<MqttClientService>());
+builder.Services.AddHostedService<MqttInboundConsumerService>();
 
 // Core Engine Services
 builder.Services.AddScoped<IDoorOperationService, DoorOperationService>();
@@ -71,7 +72,11 @@ app.UseStaticFiles();
 app.UseRouting();
 
 // Health check probe
-app.MapGet("/health", () => Results.Ok(new { status = "healthy", version = "1.0.0" }));
+app.MapGet("/health", () => Results.Ok(new 
+{ 
+    status = "healthy", 
+    version = typeof(Program).Assembly.GetName().Version?.ToString(3) ?? "1.1.0" 
+}));
 
 // Controllers & MCP Endpoints
 app.MapControllers();

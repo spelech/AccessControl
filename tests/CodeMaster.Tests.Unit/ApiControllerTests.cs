@@ -167,6 +167,57 @@ public class ApiControllerTests : IClassFixture<TestWebApplicationFactory>
     }
 
     [Fact]
+    public async Task UsersController_SavePolicy_AssignsPolicyToDoorsAndUser()
+    {
+        var jsonOpts = new JsonSerializerOptions 
+        { 
+            PropertyNameCaseInsensitive = true,
+            Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
+        };
+
+        // 1. Create Door
+        var doorRes = await _client.PostAsJsonAsync("/api/doors", new AccessPoint
+        {
+            Name = "Side Garage Door",
+            LockProviderType = "GenericMqtt"
+        });
+        var door = await doorRes.Content.ReadFromJsonAsync<AccessPoint>(jsonOpts);
+        Assert.NotNull(door);
+
+        // 2. Create User
+        var userRes = await _client.PostAsJsonAsync("/api/users", new
+        {
+            name = "Bob Contractor",
+            role = "Service"
+        });
+        var user = await userRes.Content.ReadFromJsonAsync<User>(jsonOpts);
+        Assert.NotNull(user);
+
+        // 3. Save Policy for user
+        var policy = new AccessPolicy
+        {
+            Name = "Weekday Business Hours",
+            ScheduleType = ScheduleType.WeeklyRecurring,
+            DaysOfWeek = 31,
+            StartTime = new TimeOnly(8, 0),
+            EndTime = new TimeOnly(17, 0),
+            DoorIds = [door!.Id]
+        };
+
+        var savePolicyRes = await _client.PostAsJsonAsync($"/api/users/{user!.Id}/policies", policy);
+        var errBody = await savePolicyRes.Content.ReadAsStringAsync();
+        Assert.True(savePolicyRes.IsSuccessStatusCode, $"Failed with {savePolicyRes.StatusCode}: {errBody}");
+
+        // 4. Retrieve policies for user - must NOT be empty!
+        var getPoliciesRes = await _client.GetAsync($"/api/users/{user.Id}/policies");
+        Assert.Equal(HttpStatusCode.OK, getPoliciesRes.StatusCode);
+        var userPolicies = await getPoliciesRes.Content.ReadFromJsonAsync<List<AccessPolicy>>(jsonOpts);
+        Assert.NotNull(userPolicies);
+        Assert.NotEmpty(userPolicies!);
+        Assert.Equal("Weekday Business Hours", userPolicies![0].Name);
+    }
+
+    [Fact]
     public async Task DiscoveryController_ReturnsDiscoveredTopics()
     {
         var response = await _client.GetAsync("/api/discovery/mqtt");

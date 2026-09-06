@@ -1,6 +1,7 @@
 using CodeMaster.Core.Interfaces;
 using CodeMaster.Core.Models;
 using CodeMaster.Data.Repositories;
+using CodeMaster.Engine.Mqtt;
 using CodeMaster.Engine.Services;
 using Microsoft.AspNetCore.Mvc;
 
@@ -14,6 +15,8 @@ public class AccessPointsController : ControllerBase
     private readonly IDoorOperationService _doorOps;
     private readonly IAuditLogRepository _auditRepo;
     private readonly IAccessEventBroadcaster _eventBroadcaster;
+    private readonly IMqttClientService? _mqttClient;
+    private readonly IHomeAssistantDiscoveryService? _haDiscovery;
     private readonly ILogger<AccessPointsController> _logger;
 
     public AccessPointsController(
@@ -21,13 +24,17 @@ public class AccessPointsController : ControllerBase
         IDoorOperationService doorOps,
         IAuditLogRepository auditRepo,
         IAccessEventBroadcaster eventBroadcaster,
-        ILogger<AccessPointsController> logger)
+        ILogger<AccessPointsController> logger,
+        IMqttClientService? mqttClient = null,
+        IHomeAssistantDiscoveryService? haDiscovery = null)
     {
         _doorRepo = doorRepo;
         _doorOps = doorOps;
         _auditRepo = auditRepo;
         _eventBroadcaster = eventBroadcaster;
         _logger = logger;
+        _mqttClient = mqttClient;
+        _haDiscovery = haDiscovery;
     }
 
     [HttpGet]
@@ -121,6 +128,22 @@ public class AccessPointsController : ControllerBase
         await _doorRepo.InsertAsync(door, ct);
         _logger.LogInformation("Created access point '{Name}' ({Id})", door.Name, door.Id);
 
+        if (_haDiscovery != null && _mqttClient != null && _mqttClient.IsConnected)
+        {
+            try
+            {
+                var msgs = _haDiscovery.BuildAllDiscoveryMessages(door);
+                foreach (var m in msgs)
+                {
+                    await _mqttClient.PublishAsync(m.Topic, m.Payload, retain: true, ct);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Failed to publish HA discovery messages for new door '{DoorId}'", door.Id);
+            }
+        }
+
         return CreatedAtAction(nameof(GetById), new { id = door.Id }, door);
     }
 
@@ -140,6 +163,22 @@ public class AccessPointsController : ControllerBase
         await _doorRepo.UpdateAsync(door, ct);
         _logger.LogInformation("Updated access point '{Name}' ({Id})", door.Name, id);
 
+        if (_haDiscovery != null && _mqttClient != null && _mqttClient.IsConnected)
+        {
+            try
+            {
+                var msgs = _haDiscovery.BuildAllDiscoveryMessages(door);
+                foreach (var m in msgs)
+                {
+                    await _mqttClient.PublishAsync(m.Topic, m.Payload, retain: true, ct);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Failed to republish HA discovery messages for door '{DoorId}'", id);
+            }
+        }
+
         return Ok(door);
     }
 
@@ -154,6 +193,22 @@ public class AccessPointsController : ControllerBase
 
         await _doorRepo.DeleteAsync(id, ct);
         _logger.LogInformation("Deleted access point '{Name}' ({Id})", existing.Name, id);
+
+        if (_haDiscovery != null && _mqttClient != null && _mqttClient.IsConnected)
+        {
+            try
+            {
+                var msgs = _haDiscovery.BuildAllDiscoveryMessages(existing);
+                foreach (var m in msgs)
+                {
+                    await _mqttClient.PublishAsync(m.Topic, "", retain: true, ct);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Failed to unpublish HA discovery messages for door '{DoorId}'", id);
+            }
+        }
 
         return NoContent();
     }

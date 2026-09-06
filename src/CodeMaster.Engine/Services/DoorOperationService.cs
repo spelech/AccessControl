@@ -51,6 +51,11 @@ public class DoorOperationService : IDoorOperationService
 
     public Task<int?> GetRemainingAutoLockSecondsAsync(string doorId, CancellationToken ct = default)
     {
+        if (_autoLockStateMachines.TryGetValue(doorId, out var sm))
+        {
+            return Task.FromResult(sm.RemainingSeconds);
+        }
+
         return Task.FromResult<int?>(null);
     }
 
@@ -111,6 +116,22 @@ public class DoorOperationService : IDoorOperationService
 
     public void UpdateDoorStates(string doorId, LockState? lockState = null, DoorContactState? contactState = null)
     {
+        if (!_autoLockStateMachines.ContainsKey(doorId))
+        {
+            try
+            {
+                var door = _doorRepo.GetByIdAsync(doorId).GetAwaiter().GetResult();
+                if (door != null)
+                {
+                    GetOrCreateStateMachine(door);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Failed to pre-initialize state machine for door '{DoorId}'", doorId);
+            }
+        }
+
         if (lockState.HasValue)
         {
             _lockStates[doorId] = lockState.Value;
