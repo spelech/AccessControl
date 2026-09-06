@@ -4,12 +4,20 @@ using CodeMaster.Data.Repositories;
 using CodeMaster.Engine.Services;
 using Microsoft.AspNetCore.Mvc;
 
+using System.Text.Json.Serialization;
+
 namespace CodeMaster.Web.Controllers;
 
 [ApiController]
 [Route("api/logs")]
 public class AccessLogsController : ControllerBase
 {
+    private static readonly JsonSerializerOptions s_sseJsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        Converters = { new JsonStringEnumConverter() }
+    };
+
     private readonly IAuditLogRepository _auditRepo;
     private readonly IAccessEventBroadcaster _eventBroadcaster;
     private readonly ILogger<AccessLogsController> _logger;
@@ -86,7 +94,7 @@ public class AccessLogsController : ControllerBase
 
             await foreach (var log in _eventBroadcaster.SubscribeAsync(ct))
             {
-                var json = JsonSerializer.Serialize(log);
+                var json = JsonSerializer.Serialize(log, s_sseJsonOptions);
                 await Response.WriteAsync($"data: {json}\n\n", ct);
                 await Response.Body.FlushAsync(ct);
             }

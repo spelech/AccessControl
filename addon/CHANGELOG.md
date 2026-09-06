@@ -2,6 +2,16 @@
 
 All notable changes to the CodeMaster Home Assistant Add-on will be documented in this file.
 
+## [1.4.0] - 2026-09-06
+
+### Added
+- In-modal PIN validation error alert banner (`role="alert"`) and visual border highlighting in `UserManagement` UI with auto-dismiss on keystroke.
+- Strict 4–8 numeric digit PIN validation in REST API (`UsersController.SetPin`) and MCP tool (`codemaster__create_guest_pin`).
+- Closed-loop test harness assertions replacing trivial checks: live SSE event delivery stream tests, hardware slot error handling, and non-numeric credential rejection tests.
+
+### Fixed
+- Fixed SSE event serialization formatting (`s_sseJsonOptions`) using camelCase naming policy and string enum serialization for real-time frontend streaming.
+
 ## [1.3.0] - 2026-09-06
 
 ### Added

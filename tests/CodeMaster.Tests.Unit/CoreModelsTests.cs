@@ -176,74 +176,38 @@ public class CoreModelsTests
     }
 
     [Fact]
-    public void Credential_Properties_AreInitializedCorrectly()
+    public void AccessPolicy_IsActiveAt_AlwaysSchedule_ReturnsTrueRegardlessOfTime()
     {
-        var cred = new Credential
+        var policy = new AccessPolicy
         {
-            Id = "cred_1",
-            UserId = "user_1",
-            Type = CredentialType.PIN,
-            HashedValue = "argon2_or_sha256_hash",
-            PinLength = 4,
-            Label = "Front Door PIN"
+            ScheduleType = ScheduleType.Always,
+            IsEnabled = true
         };
 
-        Assert.Equal("cred_1", cred.Id);
-        Assert.Equal("user_1", cred.UserId);
-        Assert.Equal(CredentialType.PIN, cred.Type);
-        Assert.Equal(4, cred.PinLength);
-        Assert.Equal("Front Door PIN", cred.Label);
+        Assert.True(policy.IsActiveAt(new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)));
+        Assert.True(policy.IsActiveAt(new DateTime(2026, 12, 31, 23, 59, 59, DateTimeKind.Utc)));
     }
 
     [Fact]
-    public void User_Initialization_HasCorrectDefaults()
+    public void AccessPolicy_IsActiveAt_InvalidTimeZone_GracefullyFallsBackToUtc()
     {
-        var user = new User
+        var policy = new AccessPolicy
         {
-            Name = "Alice Doe",
-            Role = UserRole.Admin
+            ScheduleType = ScheduleType.WeeklyRecurring,
+            DaysOfWeek = 127,
+            StartTime = new TimeOnly(9, 0),
+            EndTime = new TimeOnly(17, 0),
+            TimeZoneId = "Invalid/NonExistent_TimeZone",
+            IsEnabled = true
         };
 
-        Assert.False(string.IsNullOrWhiteSpace(user.Id));
-        Assert.Equal("Alice Doe", user.Name);
-        Assert.Equal(UserRole.Admin, user.Role);
-        Assert.True(user.IsActive);
-    }
+        // 12:00 UTC should be active in fallback UTC
+        var testTime = new DateTime(2026, 9, 7, 12, 0, 0, DateTimeKind.Utc);
+        Assert.True(policy.IsActiveAt(testTime));
 
-    [Fact]
-    public void HardwareSlot_Initialization_HasCorrectDefaults()
-    {
-        var slot = new HardwareSlot
-        {
-            AccessPointId = "ap_1",
-            SlotNumber = 3,
-            SyncStatus = SlotSyncStatus.Synced
-        };
-
-        Assert.False(string.IsNullOrWhiteSpace(slot.Id));
-        Assert.Equal("ap_1", slot.AccessPointId);
-        Assert.Equal(3, slot.SlotNumber);
-        Assert.Equal(SlotSyncStatus.Synced, slot.SyncStatus);
-    }
-
-    [Fact]
-    public void AccessLog_Initialization_HasCorrectDefaults()
-    {
-        var log = new AccessLog
-        {
-            AccessPointId = "ap_front",
-            UserId = "usr_1",
-            UserName = "Alice",
-            CredentialType = CredentialType.PIN,
-            EventType = AccessEventType.Unlocked,
-            Method = AccessMethod.RingKeypad
-        };
-
-        Assert.False(string.IsNullOrWhiteSpace(log.Id));
-        Assert.Equal("ap_front", log.AccessPointId);
-        Assert.Equal("Alice", log.UserName);
-        Assert.Equal(AccessEventType.Unlocked, log.EventType);
-        Assert.Equal(AccessMethod.RingKeypad, log.Method);
+        // 20:00 UTC should be inactive
+        var afterTime = new DateTime(2026, 9, 7, 20, 0, 0, DateTimeKind.Utc);
+        Assert.False(policy.IsActiveAt(afterTime));
     }
 
     [Fact]
@@ -259,31 +223,5 @@ public class CoreModelsTests
         Assert.True(keypadCaps.HasFlag(KeypadCapabilities.ArmDisarm));
         Assert.True(keypadCaps.HasFlag(KeypadCapabilities.StatelessPinEvents));
         Assert.False(keypadCaps.HasFlag(KeypadCapabilities.SlottedPinStorage));
-    }
-
-    [Fact]
-    public void DTOs_HoldExpectedData()
-    {
-        var slotDto = new HardwareSlotDto(1, true, "1234", "Master Code");
-        Assert.Equal(1, slotDto.SlotNumber);
-        Assert.True(slotDto.InUse);
-        Assert.Equal("1234", slotDto.PinCode);
-        Assert.Equal("Master Code", slotDto.Label);
-
-        var now = DateTime.UtcNow;
-        var keypadEvent = new KeypadEventDto
-        {
-            Action = KeypadAction.Disarm,
-            Pin = "9876",
-            Timestamp = now,
-            RawTopic = "ring/alarm/keypad",
-            DeviceId = "keypad_v2"
-        };
-
-        Assert.Equal(KeypadAction.Disarm, keypadEvent.Action);
-        Assert.Equal("9876", keypadEvent.Pin);
-        Assert.Equal(now, keypadEvent.Timestamp);
-        Assert.Equal("ring/alarm/keypad", keypadEvent.RawTopic);
-        Assert.Equal("keypad_v2", keypadEvent.DeviceId);
     }
 }
