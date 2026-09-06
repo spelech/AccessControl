@@ -294,9 +294,9 @@ public class UsersController : ControllerBase
             return NotFound(new { error = $"User '{id}' not found" });
         }
 
-        if (string.IsNullOrWhiteSpace(request.Pin))
+        if (string.IsNullOrWhiteSpace(request.Pin) || request.Pin.Length < 4 || request.Pin.Length > 8 || !request.Pin.All(char.IsAsciiDigit))
         {
-            return BadRequest(new { error = "PIN cannot be empty" });
+            return BadRequest(new { error = "PIN must be between 4 and 8 numeric digits (0-9)." });
         }
 
         var encryptedPin = _encryptionService != null ? _encryptionService.Encrypt(request.Pin) : request.Pin;

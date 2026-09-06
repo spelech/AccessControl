@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { UserPlus, Key, Trash2, X, Check } from 'lucide-react';
+import { UserPlus, Key, Trash2, X, Check, AlertCircle } from 'lucide-react';
 import { useUserStore } from '../../stores/useUserStore';
 import { ScheduleEditor } from './ScheduleEditor';
 import type { User, UserRoleType, AccessPolicy } from '../../types';
@@ -22,6 +22,7 @@ export const UserManagement: React.FC = () => {
   const [pinModalUser, setPinModalUser] = useState<User | null>(null);
   const [pinCode, setPinCode] = useState('');
   const [pinLabel, setPinLabel] = useState('Front Keypad PIN');
+  const [pinModalError, setPinModalError] = useState<string | null>(null);
   const [policyData, setPolicyData] = useState<Partial<AccessPolicy>>({
     name: 'Standard Access',
     scheduleType: 'Always',
@@ -30,6 +31,18 @@ export const UserManagement: React.FC = () => {
   });
 
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+
+  const openPinModal = (user: User) => {
+    setPinModalUser(user);
+    setPinModalError(null);
+    setPinCode('');
+  };
+
+  const closePinModal = () => {
+    setPinModalUser(null);
+    setPinModalError(null);
+    setPinCode('');
+  };
 
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,18 +62,27 @@ export const UserManagement: React.FC = () => {
 
   const handleSavePinAndSchedule = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!pinModalUser || !pinCode.trim()) return;
+    if (!pinModalUser) return;
+
+    const cleanPin = pinCode.trim();
+    if (cleanPin.length < 4 || cleanPin.length > 8 || !/^\d+$/.test(cleanPin)) {
+      setPinModalError('PIN must be between 4 and 8 numeric digits (0-9).');
+      return;
+    }
 
     try {
-      await setUserPin(pinModalUser.id, pinCode.trim(), pinLabel);
+      await setUserPin(pinModalUser.id, cleanPin, pinLabel);
       await savePolicy(pinModalUser.id, policyData);
 
       setPinModalUser(null);
       setPinCode('');
+      setPinModalError(null);
       setStatusMessage(`PIN saved and synced for ${pinModalUser.name}`);
       setTimeout(() => setStatusMessage(null), 3000);
-    } catch {
-      setStatusMessage('Failed to save PIN');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to save PIN';
+      const match = msg.match(/"error"\s*:\s*"([^"]+)"/);
+      setPinModalError(match ? match[1] : msg);
     }
   };
 
@@ -164,7 +186,7 @@ export const UserManagement: React.FC = () => {
                 <button
                   type="button"
                   className="btn-secondary"
-                  onClick={() => setPinModalUser(user)}
+                  onClick={() => openPinModal(user)}
                   style={{ flex: 1, minHeight: '40px', fontSize: '0.85rem' }}
                 >
                   <Key size={16} /> {pinCred ? 'Change PIN / Schedule' : 'Assign PIN'}
@@ -229,7 +251,7 @@ export const UserManagement: React.FC = () => {
 
       {/* PIN & Schedule Modal */}
       {pinModalUser && (
-        <div className="modal-backdrop" onClick={() => setPinModalUser(null)} role="dialog" aria-modal="true">
+        <div className="modal-backdrop" onClick={closePinModal} role="dialog" aria-modal="true">
           <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '580px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
               <div>
@@ -241,13 +263,34 @@ export const UserManagement: React.FC = () => {
               <button
                 type="button"
                 className="btn-outline"
-                onClick={() => setPinModalUser(null)}
+                onClick={closePinModal}
                 style={{ padding: '0.3rem', minHeight: '32px' }}
                 aria-label="Close dialog"
               >
                 <X size={18} />
               </button>
             </div>
+
+            {pinModalError && (
+              <div
+                style={{
+                  backgroundColor: 'var(--status-jammed-subtle)',
+                  color: 'var(--status-jammed)',
+                  padding: '0.65rem 0.85rem',
+                  borderRadius: 'var(--radius-md)',
+                  fontSize: '0.85rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  border: '1px solid var(--status-jammed)',
+                  marginBottom: '1rem'
+                }}
+                role="alert"
+              >
+                <AlertCircle size={18} style={{ flexShrink: 0 }} />
+                <span style={{ fontWeight: 500 }}>{pinModalError}</span>
+              </div>
+            )}
 
             <form onSubmit={handleSavePinAndSchedule} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
@@ -261,7 +304,13 @@ export const UserManagement: React.FC = () => {
                     maxLength={8}
                     placeholder="••••"
                     value={pinCode}
-                    onChange={(e) => setPinCode(e.target.value.replace(/\D/g, ''))}
+                    onChange={(e) => {
+                      setPinCode(e.target.value.replace(/\D/g, ''));
+                      if (pinModalError) setPinModalError(null);
+                    }}
+                    style={{
+                      borderColor: pinModalError ? 'var(--status-jammed)' : undefined,
+                    }}
                     required
                   />
                 </div>
@@ -282,7 +331,7 @@ export const UserManagement: React.FC = () => {
               <ScheduleEditor policy={policyData} onChange={setPolicyData} />
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.5rem' }}>
-                <button type="button" className="btn-secondary" onClick={() => setPinModalUser(null)}>
+                <button type="button" className="btn-secondary" onClick={closePinModal}>
                   Cancel
                 </button>
                 <button type="submit" className="btn-primary">

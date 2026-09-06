@@ -332,6 +332,11 @@ public class DoorTools : IDoorTools
         var name = nameProp.GetString()!;
         var pin = pinProp.GetString()!;
 
+        if (pin.Length < 4 || pin.Length > 8 || !pin.All(char.IsAsciiDigit))
+        {
+            return McpToolCallResult.Text("PIN must be between 4 and 8 numeric digits (0-9).", isError: true);
+        }
+
         // 1. Create User
         var user = new User
         {

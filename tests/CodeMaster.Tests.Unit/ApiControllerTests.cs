@@ -165,6 +165,23 @@ public class ApiControllerTests : IClassFixture<TestWebApplicationFactory>
         Assert.Equal(HttpStatusCode.OK, updatePinRes.StatusCode);
         var updatedCred = await updatePinRes.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal(4, updatedCred.GetProperty("pinLength").GetInt32());
+
+        // Attempt invalid PINs (non-numeric, too short, too long)
+        var invalidShortRes = await _client.PostAsJsonAsync($"/api/users/{createdUser.Id}/credentials/pin", new
+        {
+            pin = "12",
+            label = "Too short"
+        });
+        Assert.Equal(HttpStatusCode.BadRequest, invalidShortRes.StatusCode);
+        var shortJson = await invalidShortRes.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Contains("PIN must be between 4 and 8 numeric digits", shortJson.GetProperty("error").GetString());
+
+        var invalidAlphaRes = await _client.PostAsJsonAsync($"/api/users/{createdUser.Id}/credentials/pin", new
+        {
+            pin = "abcd1",
+            label = "Non-numeric"
+        });
+        Assert.Equal(HttpStatusCode.BadRequest, invalidAlphaRes.StatusCode);
     }
 
     [Fact]
@@ -511,8 +528,11 @@ public class ApiControllerTests : IClassFixture<TestWebApplicationFactory>
         var emptyLine = await reader.ReadLineAsync(cts.Token);
         Assert.Equal("", emptyLine);
 
+        // Use a separate client instance so the streaming request doesn't multiplex/block on in-memory TestServer handler
+        using var client2 = _factory.CreateClient();
+
         // Create a test door
-        var doorRes = await _client.PostAsJsonAsync("/api/doors", new AccessPoint
+        var doorRes = await client2.PostAsJsonAsync("/api/doors", new AccessPoint
         {
             Name = "SSE Stream Door",
             LockProviderType = "GenericMqtt"
@@ -521,7 +541,7 @@ public class ApiControllerTests : IClassFixture<TestWebApplicationFactory>
         Assert.NotNull(door);
 
         // Perform unlock which broadcasts to the event stream
-        var unlockRes = await _client.PostAsync($"/api/doors/{door!.Id}/unlock", null, cts.Token);
+        var unlockRes = await client2.PostAsync($"/api/doors/{door!.Id}/unlock", null, cts.Token);
         Assert.Equal(HttpStatusCode.OK, unlockRes.StatusCode);
 
         // Read the streamed event: "data: {json}"
