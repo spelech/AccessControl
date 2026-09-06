@@ -18,7 +18,7 @@ public class AccessPolicyRepository : IAccessPolicyRepository
         using var connection = _connectionFactory.CreateConnection();
         const string sql = @"
             SELECT Id, Name, ScheduleType, DaysOfWeek, StartTime, EndTime,
-                   ValidFrom, ValidUntil, RemainingUses, IsEnabled
+                   ValidFrom, ValidUntil, RemainingUses, IsEnabled, TimeZoneId
             FROM AccessPolicies
             WHERE Id = @Id;";
 
@@ -30,7 +30,7 @@ public class AccessPolicyRepository : IAccessPolicyRepository
         using var connection = _connectionFactory.CreateConnection();
         const string sql = @"
             SELECT p.Id, p.Name, p.ScheduleType, p.DaysOfWeek, p.StartTime, p.EndTime,
-                   p.ValidFrom, p.ValidUntil, p.RemainingUses, p.IsEnabled
+                   p.ValidFrom, p.ValidUntil, p.RemainingUses, p.IsEnabled, p.TimeZoneId
             FROM AccessPolicies p
             INNER JOIN AccessAssignments a ON p.Id = a.PolicyId
             WHERE a.AccessPointId = @AccessPointId;";
@@ -44,7 +44,7 @@ public class AccessPolicyRepository : IAccessPolicyRepository
         using var connection = _connectionFactory.CreateConnection();
         const string sql = @"
             SELECT DISTINCT p.Id, p.Name, p.ScheduleType, p.DaysOfWeek, p.StartTime, p.EndTime,
-                            p.ValidFrom, p.ValidUntil, p.RemainingUses, p.IsEnabled
+                            p.ValidFrom, p.ValidUntil, p.RemainingUses, p.IsEnabled, p.TimeZoneId
             FROM AccessPolicies p
             INNER JOIN AccessAssignments a ON p.Id = a.PolicyId
             LEFT JOIN Users u ON u.Id = @UserId
@@ -60,11 +60,11 @@ public class AccessPolicyRepository : IAccessPolicyRepository
         const string sql = @"
             INSERT INTO AccessPolicies (
                 Id, Name, ScheduleType, DaysOfWeek, StartTime, EndTime,
-                ValidFrom, ValidUntil, RemainingUses, IsEnabled
+                ValidFrom, ValidUntil, RemainingUses, IsEnabled, TimeZoneId
             )
             VALUES (
                 @Id, @Name, @ScheduleType, @DaysOfWeek, @StartTime, @EndTime,
-                @ValidFrom, @ValidUntil, @RemainingUses, @IsEnabled
+                @ValidFrom, @ValidUntil, @RemainingUses, @IsEnabled, @TimeZoneId
             );";
 
         var parameters = new
@@ -78,7 +78,8 @@ public class AccessPolicyRepository : IAccessPolicyRepository
             ValidFrom = policy.ValidFrom?.ToString("O"),
             ValidUntil = policy.ValidUntil?.ToString("O"),
             policy.RemainingUses,
-            IsEnabled = policy.IsEnabled ? 1 : 0
+            IsEnabled = policy.IsEnabled ? 1 : 0,
+            policy.TimeZoneId
         };
 
         await connection.ExecuteAsync(new CommandDefinition(sql, parameters, cancellationToken: ct));
@@ -97,7 +98,8 @@ public class AccessPolicyRepository : IAccessPolicyRepository
                 ValidFrom = @ValidFrom,
                 ValidUntil = @ValidUntil,
                 RemainingUses = @RemainingUses,
-                IsEnabled = @IsEnabled
+                IsEnabled = @IsEnabled,
+                TimeZoneId = @TimeZoneId
             WHERE Id = @Id;";
 
         var parameters = new
@@ -111,7 +113,8 @@ public class AccessPolicyRepository : IAccessPolicyRepository
             ValidFrom = policy.ValidFrom?.ToString("O"),
             ValidUntil = policy.ValidUntil?.ToString("O"),
             policy.RemainingUses,
-            IsEnabled = policy.IsEnabled ? 1 : 0
+            IsEnabled = policy.IsEnabled ? 1 : 0,
+            policy.TimeZoneId
         };
 
         await connection.ExecuteAsync(new CommandDefinition(sql, parameters, cancellationToken: ct));

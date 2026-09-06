@@ -3,6 +3,7 @@ using CodeMaster.Data.Db;
 using CodeMaster.Data.Repositories;
 using CodeMaster.Engine.Channels;
 using CodeMaster.Engine.Mqtt;
+using CodeMaster.Engine.Security;
 using CodeMaster.Engine.Services;
 using CodeMaster.Mcp;
 using CodeMaster.Web.Middleware;
@@ -38,6 +39,7 @@ builder.Services.AddScoped<IHardwareSlotSyncWorker, HardwareSlotSyncWorker>();
 builder.Services.AddSingleton<IMqttDiscoveryService, MqttTopicDiscoveryService>();
 builder.Services.AddSingleton<IHomeAssistantDiscoveryService, HomeAssistantDiscoveryService>();
 builder.Services.AddSingleton<IAccessEventBroadcaster, AccessEventBroadcaster>();
+builder.Services.AddSingleton<ICredentialEncryptionService, AesGcmCredentialEncryptionService>();
 
 // Notifications
 builder.Services.Configure<AppriseOptions>(builder.Configuration.GetSection("Apprise"));

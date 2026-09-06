@@ -12,6 +12,7 @@ namespace CodeMaster.Engine.Services;
 public class DoorOperationService : IDoorOperationService
 {
     private readonly IAccessPointRepository _doorRepo;
+    private readonly IHardwareSlotRepository? _slotRepo;
     private readonly IMqttClientService? _mqttClient;
     private readonly ILogger<DoorOperationService> _logger;
 
@@ -22,11 +23,13 @@ public class DoorOperationService : IDoorOperationService
     public DoorOperationService(
         IAccessPointRepository doorRepo,
         ILogger<DoorOperationService> logger,
-        IMqttClientService? mqttClient = null)
+        IMqttClientService? mqttClient = null,
+        IHardwareSlotRepository? slotRepo = null)
     {
         _doorRepo = doorRepo;
         _logger = logger;
         _mqttClient = mqttClient;
+        _slotRepo = slotRepo;
     }
 
     public Task<LockState> GetDoorLockStateAsync(string doorId, CancellationToken ct = default)
@@ -149,6 +152,57 @@ public class DoorOperationService : IDoorOperationService
                 sm.OnDoorContactChanged(contactState.Value);
             }
         }
+    }
+
+    public async Task<int> ClearUserHardwareSlotsAsync(string userId, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(userId) || _slotRepo == null)
+        {
+            return 0;
+        }
+
+        var doors = await _doorRepo.GetAllAsync(ct);
+        var clearedCount = 0;
+
+        foreach (var door in doors)
+        {
+            var slots = await _slotRepo.GetSlotsForDoorAsync(door.Id, ct);
+            var userSlots = slots.Where(s => s.UserId == userId).ToList();
+            if (userSlots.Count == 0)
+            {
+                continue;
+            }
+
+            var provider = CreateLockProvider(door);
+
+            foreach (var slot in userSlots)
+            {
+                _logger.LogInformation("Clearing physical hardware slot {SlotNumber} for user {UserId} on door '{DoorName}' ({DoorId})",
+                    slot.SlotNumber, userId, door.Name, door.Id);
+
+                await _slotRepo.UpdateSlotSyncStatusAsync(slot.Id, SlotSyncStatus.Deleting, null, ct);
+
+                var cleared = true;
+                if (provider.Capabilities.HasFlag(LockCapabilities.UserCodes))
+                {
+                    cleared = await provider.ClearSlotCodeAsync(slot.SlotNumber, ct);
+                }
+
+                if (cleared)
+                {
+                    await _slotRepo.ClearSlotAsync(slot.Id, ct);
+                    await _slotRepo.UpdateSlotSyncStatusAsync(slot.Id, SlotSyncStatus.Synced, DateTime.UtcNow, ct);
+                    clearedCount++;
+                }
+                else
+                {
+                    _logger.LogWarning("Failed to clear physical hardware slot {SlotNumber} on door '{DoorName}'", slot.SlotNumber, door.Name);
+                    await _slotRepo.UpdateSlotSyncStatusAsync(slot.Id, SlotSyncStatus.Error, null, ct);
+                }
+            }
+        }
+
+        return clearedCount;
     }
 
     private AutoLockStateMachine GetOrCreateStateMachine(AccessPoint door)

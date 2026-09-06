@@ -10,4 +10,5 @@ public interface IDoorOperationService
     Task<bool> UnlockDoorAsync(string doorId, int? durationMinutes = null, CancellationToken ct = default);
     Task<bool> LockDoorAsync(string doorId, CancellationToken ct = default);
     void UpdateDoorStates(string doorId, LockState? lockState = null, DoorContactState? contactState = null);
+    Task<int> ClearUserHardwareSlotsAsync(string userId, CancellationToken ct = default);
 }
