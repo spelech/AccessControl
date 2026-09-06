@@ -92,4 +92,57 @@ public class HardwareSlotSyncWorkerTests
         await _slotRepo.Received(1).ClearSlotAsync(existingSlot.Id, Arg.Any<CancellationToken>());
         await _slotRepo.Received(1).UpdateSlotSyncStatusAsync(existingSlot.Id, SlotSyncStatus.Synced, Arg.Any<DateTime?>(), Arg.Any<CancellationToken>());
     }
+
+    [Theory]
+    [InlineData("abcd")]
+    [InlineData("12")]       // too short (< 4 digits)
+    [InlineData("1234567890123")] // too long (> 10 digits)
+    [InlineData("123a56")]   // contains letter
+    public async Task ReconcileDoorSlotsAsync_NonNumericOrInvalidLengthPin_SkipsHardwareSync(string invalidPin)
+    {
+        var door = new AccessPoint { Id = "door-schlage", Name = "Front Door" };
+        _lockProvider.Capabilities.Returns(LockCapabilities.SupportsHardwareSlots);
+
+        var user = new User { Id = "user-inv", Name = "Invalid User", IsActive = true };
+        var cred = new Credential { Id = "cred-inv", UserId = user.Id, Type = CredentialType.PIN, EncryptedValue = invalidPin };
+        var policy = new AccessPolicy { Id = "policy-inv", ScheduleType = ScheduleType.Always, IsEnabled = true };
+
+        _userRepo.GetAllAsync(Arg.Any<CancellationToken>()).Returns([user]);
+        _credentialRepo.GetByUserIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns([cred]);
+        _policyRepo.GetByUserIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns([policy]);
+        _policyRepo.GetByAccessPointIdAsync(door.Id, Arg.Any<CancellationToken>()).Returns([policy]);
+        _slotRepo.GetSlotsForDoorAsync(door.Id, Arg.Any<CancellationToken>()).Returns(new List<HardwareSlot>());
+
+        await _worker.ReconcileDoorSlotsAsync(door, _lockProvider);
+
+        await _slotRepo.DidNotReceive().AllocateSlotAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>());
+        await _lockProvider.DidNotReceive().SetSlotCodeAsync(Arg.Any<int>(), Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ReconcileDoorSlotsAsync_WhenLockSetSlotCodeFails_MarksStatusAsError()
+    {
+        var door = new AccessPoint { Id = "door-schlage", Name = "Front Door" };
+        _lockProvider.Capabilities.Returns(LockCapabilities.SupportsHardwareSlots);
+
+        var user = new User { Id = "user-1", Name = "Steve", IsActive = true };
+        var cred = new Credential { Id = "cred-1", UserId = user.Id, Type = CredentialType.PIN, EncryptedValue = "4821" };
+        var policy = new AccessPolicy { Id = "policy-1", ScheduleType = ScheduleType.Always, IsEnabled = true };
+
+        _userRepo.GetAllAsync(Arg.Any<CancellationToken>()).Returns([user]);
+        _credentialRepo.GetByUserIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns([cred]);
+        _policyRepo.GetByUserIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns([policy]);
+        _policyRepo.GetByAccessPointIdAsync(door.Id, Arg.Any<CancellationToken>()).Returns([policy]);
+        _slotRepo.GetSlotsForDoorAsync(door.Id, Arg.Any<CancellationToken>()).Returns(new List<HardwareSlot>());
+
+        var allocatedSlot = new HardwareSlot { Id = "slot-1", AccessPointId = door.Id, SlotNumber = 1, UserId = user.Id, CredentialId = cred.Id };
+        _slotRepo.AllocateSlotAsync(door.Id, user.Id, cred.Id, 1, Arg.Any<CancellationToken>()).Returns(allocatedSlot);
+        // Lock provider rejects the command or communications fail
+        _lockProvider.SetSlotCodeAsync(1, "4821", "Steve", Arg.Any<CancellationToken>()).Returns(false);
+
+        await _worker.ReconcileDoorSlotsAsync(door, _lockProvider);
+
+        await _slotRepo.Received(1).UpdateSlotSyncStatusAsync(allocatedSlot.Id, SlotSyncStatus.Error, null, Arg.Any<CancellationToken>());
+        await _slotRepo.DidNotReceive().UpdateSlotSyncStatusAsync(allocatedSlot.Id, SlotSyncStatus.Synced, Arg.Any<DateTime?>(), Arg.Any<CancellationToken>());
+    }
 }
