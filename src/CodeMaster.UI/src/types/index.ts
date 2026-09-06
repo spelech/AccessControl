@@ -83,3 +83,52 @@ export interface DiscoveredTopic {
   description: string;
   rawPayloadSample?: string;
 }
+
+export type ZWaveTransportType = 'WebSocket' | 'Mqtt';
+
+export interface SystemSettings {
+  zWaveTransportType: ZWaveTransportType;
+  zWaveWebSocketUrl: string;
+  zWaveMqttPrefix: string;
+  mqttHost: string;
+  mqttPort: number;
+  mqttUsername: string;
+  mqttPassword?: string;
+  appriseUrl: string;
+}
+
+export interface TransportInfo {
+  transportId: string;
+  displayName: string;
+  status: string;
+  isConnected: boolean;
+  details?: string | null;
+}
+
+export interface SettingsResponse {
+  settings: SystemSettings;
+  transports: TransportInfo[];
+}
+
+export interface DetectedZWaveNode {
+  nodeId: number;
+  name: string;
+  deviceType: 'lock' | 'keypad' | 'sensor' | string;
+  model: string;
+}
+
+export interface TestConnectionRequest {
+  transportType: ZWaveTransportType;
+  endpointUrl?: string;
+}
+
+export interface TestConnectionResult {
+  success: boolean;
+  latencyMs?: number;
+  driverVersion?: string;
+  serverVersion?: string;
+  nodeCount?: number;
+  detectedNodes?: DetectedZWaveNode[];
+  message: string;
+}
+

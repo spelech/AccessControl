@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Text.Json;
 using CodeMaster.Core.Interfaces;
 using CodeMaster.Core.Models;
+using CodeMaster.Core.Transports;
 using CodeMaster.Data.Repositories;
 using CodeMaster.Engine.Mqtt;
 using CodeMaster.Engine.Providers.Locks;
@@ -14,6 +15,7 @@ public class DoorOperationService : IDoorOperationService
     private readonly IAccessPointRepository _doorRepo;
     private readonly IHardwareSlotRepository? _slotRepo;
     private readonly IMqttClientService? _mqttClient;
+    private readonly ITransportRegistry? _transportRegistry;
     private readonly ILogger<DoorOperationService> _logger;
 
     private static readonly ConcurrentDictionary<string, LockState> _lockStates = new();
@@ -24,12 +26,14 @@ public class DoorOperationService : IDoorOperationService
         IAccessPointRepository doorRepo,
         ILogger<DoorOperationService> logger,
         IMqttClientService? mqttClient = null,
-        IHardwareSlotRepository? slotRepo = null)
+        IHardwareSlotRepository? slotRepo = null,
+        ITransportRegistry? transportRegistry = null)
     {
         _doorRepo = doorRepo;
         _logger = logger;
         _mqttClient = mqttClient;
         _slotRepo = slotRepo;
+        _transportRegistry = transportRegistry;
     }
 
     public Task<LockState> GetDoorLockStateAsync(string doorId, CancellationToken ct = default)
@@ -223,23 +227,23 @@ public class DoorOperationService : IDoorOperationService
     private ILockProvider CreateLockProvider(AccessPoint door)
     {
         var configJson = door.LockConfigJson;
-        string? topic = null;
+        string? target = null;
         if (!string.IsNullOrWhiteSpace(configJson))
         {
             try
             {
                 using var doc = JsonDocument.Parse(configJson);
-                if (doc.RootElement.TryGetProperty("topic", out var tProp))
+                if (doc.RootElement.TryGetProperty("nodeId", out var nProp))
                 {
-                    topic = tProp.GetString();
+                    target = nProp.GetString();
+                }
+                else if (doc.RootElement.TryGetProperty("topic", out var tProp))
+                {
+                    target = tProp.GetString();
                 }
                 else if (doc.RootElement.TryGetProperty("lockTopic", out var ltProp))
                 {
-                    topic = ltProp.GetString();
-                }
-                else if (doc.RootElement.TryGetProperty("nodeId", out var nProp))
-                {
-                    topic = nProp.GetString();
+                    target = ltProp.GetString();
                 }
             }
             catch
@@ -251,11 +255,26 @@ public class DoorOperationService : IDoorOperationService
         var lockType = door.LockProviderType ?? string.Empty;
         if (lockType.Contains("ZWave", StringComparison.OrdinalIgnoreCase))
         {
-            return new ZWaveJsMqttLockProvider(topic ?? door.Id, 0, _mqttClient);
+            if (_transportRegistry != null)
+            {
+                var wsTransport = _transportRegistry.GetTransport<CodeMaster.Core.Transports.ILockTransport>("zwave_ws");
+                if (wsTransport != null && wsTransport.IsConnected)
+                {
+                    return new CodeMaster.Engine.Transports.TransportLockProviderAdapter(wsTransport, target ?? door.Id);
+                }
+
+                var mqttTransport = _transportRegistry.GetTransport<CodeMaster.Core.Transports.ILockTransport>("zwave_mqtt");
+                if (mqttTransport != null && mqttTransport.IsConnected)
+                {
+                    return new CodeMaster.Engine.Transports.TransportLockProviderAdapter(mqttTransport, target ?? door.Id);
+                }
+            }
+
+            return new ZWaveJsMqttLockProvider(target ?? door.Id, 0, _mqttClient);
         }
 
-        var cmdTopic = topic ?? $"codemaster/{door.Id}/lock/set";
-        var stateTopic = topic ?? $"codemaster/{door.Id}/lock/state";
+        var cmdTopic = target ?? $"codemaster/{door.Id}/lock/set";
+        var stateTopic = target ?? $"codemaster/{door.Id}/lock/state";
         return new GenericMqttLockProvider(cmdTopic, stateTopic, "LOCK", "UNLOCK", _mqttClient);
     }
 }
