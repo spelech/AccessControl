@@ -37,6 +37,20 @@ public class DatabaseSeederService
             // Column already exists or table was just created with column
         }
 
+        try
+        {
+            await connection.ExecuteAsync(new CommandDefinition(@"
+                CREATE TABLE IF NOT EXISTS system_settings (
+                    key TEXT PRIMARY KEY,
+                    value TEXT NOT NULL,
+                    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+                );", cancellationToken: ct));
+        }
+        catch
+        {
+            // Table already exists
+        }
+
         _logger.LogInformation("Database schema initialized successfully.");
     }
 
