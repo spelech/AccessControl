@@ -1,2 +1,8 @@
 <Solution>
+  <Folder Name="/src/">
+    <Project Path="src/CodeMaster.Core/CodeMaster.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/CodeMaster.Tests.Unit/CodeMaster.Tests.Unit.csproj" />
+  </Folder>
 </Solution>
