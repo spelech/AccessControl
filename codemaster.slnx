@@ -3,6 +3,8 @@
     <Project Path="src/CodeMaster.Core/CodeMaster.Core.csproj" />
     <Project Path="src/CodeMaster.Data/CodeMaster.Data.csproj" />
     <Project Path="src/CodeMaster.Engine/CodeMaster.Engine.csproj" />
+    <Project Path="src/CodeMaster.Mcp/CodeMaster.Mcp.csproj" />
+    <Project Path="src/CodeMaster.Web/CodeMaster.Web.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/CodeMaster.Tests.Unit/CodeMaster.Tests.Unit.csproj" />

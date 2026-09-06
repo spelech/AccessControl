@@ -49,7 +49,7 @@ public class CredentialRepository : ICredentialRepository
             credential.Id,
             credential.UserId,
             Type = credential.Type.ToString(),
-            credential.EncryptedValue,
+            EncryptedValue = credential.EncryptedValue ?? string.Empty,
             credential.HashedValue,
             credential.PinLength,
             credential.Label,

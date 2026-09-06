@@ -46,7 +46,14 @@ public class GenericMqttLockProvider : ILockProvider
     {
         if (_mqttClient != null)
         {
-            await _mqttClient.PublishAsync(_commandTopic, _lockPayload, retain: false, cancellationToken);
+            try
+            {
+                await _mqttClient.PublishAsync(_commandTopic, _lockPayload, retain: false, cancellationToken);
+            }
+            catch (InvalidOperationException)
+            {
+                // Offline fallback
+            }
         }
 
         _currentState = LockState.Locked;
@@ -57,7 +64,14 @@ public class GenericMqttLockProvider : ILockProvider
     {
         if (_mqttClient != null)
         {
-            await _mqttClient.PublishAsync(_commandTopic, _unlockPayload, retain: false, cancellationToken);
+            try
+            {
+                await _mqttClient.PublishAsync(_commandTopic, _unlockPayload, retain: false, cancellationToken);
+            }
+            catch (InvalidOperationException)
+            {
+                // Offline fallback
+            }
         }
 
         _currentState = LockState.Unlocked;

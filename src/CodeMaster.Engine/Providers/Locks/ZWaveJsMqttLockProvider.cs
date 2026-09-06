@@ -71,7 +71,14 @@ public class ZWaveJsMqttLockProvider : ILockProvider
         var topic = GetLockTopic();
         if (_mqttClient != null)
         {
-            await _mqttClient.PublishAsync(topic, "true", retain: false, cancellationToken);
+            try
+            {
+                await _mqttClient.PublishAsync(topic, "true", retain: false, cancellationToken);
+            }
+            catch (InvalidOperationException)
+            {
+                // Offline fallback
+            }
         }
 
         _currentState = LockState.Locked;
@@ -83,7 +90,14 @@ public class ZWaveJsMqttLockProvider : ILockProvider
         var topic = GetUnlockTopic();
         if (_mqttClient != null)
         {
-            await _mqttClient.PublishAsync(topic, "false", retain: false, cancellationToken);
+            try
+            {
+                await _mqttClient.PublishAsync(topic, "false", retain: false, cancellationToken);
+            }
+            catch (InvalidOperationException)
+            {
+                // Offline fallback
+            }
         }
 
         _currentState = LockState.Unlocked;
@@ -110,7 +124,14 @@ public class ZWaveJsMqttLockProvider : ILockProvider
 
         if (_mqttClient != null)
         {
-            await _mqttClient.PublishAsync(topic, payload, retain: false, cancellationToken);
+            try
+            {
+                await _mqttClient.PublishAsync(topic, payload, retain: false, cancellationToken);
+            }
+            catch (InvalidOperationException)
+            {
+                // Offline fallback
+            }
         }
 
         _slots[slotNumber] = new HardwareSlotDto(slotNumber, true, pinCode, label);
@@ -130,7 +151,14 @@ public class ZWaveJsMqttLockProvider : ILockProvider
 
         if (_mqttClient != null)
         {
-            await _mqttClient.PublishAsync(topic, payload, retain: false, cancellationToken);
+            try
+            {
+                await _mqttClient.PublishAsync(topic, payload, retain: false, cancellationToken);
+            }
+            catch (InvalidOperationException)
+            {
+                // Offline fallback
+            }
         }
 
         _slots.TryRemove(slotNumber, out _);
