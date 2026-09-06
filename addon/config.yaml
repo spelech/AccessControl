@@ -3,7 +3,6 @@ description: "Universal Access Control & Lock/Keypad Synchronization Engine"
 version: "1.0.0"
 slug: "codemaster"
 arch:
-  - aarch64
   - amd64
 init: false
 ingress: true
@@ -15,4 +14,4 @@ options:
 schema:
   mqtt_host: "str"
   mqtt_port: "int"
-image: "ghcr.io/spelech/codemaster-{arch}"
+image: "ghcr.io/spelech/codemaster"

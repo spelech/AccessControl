@@ -7,7 +7,7 @@ All notable changes to the CodeMaster Home Assistant Add-on will be documented i
 ### Added
 - Initial release of CodeMaster Home Assistant Add-on.
 - Full Home Assistant Ingress integration (`ingress: true`) on port 8150.
-- Multi-architecture container support (`linux/amd64`, `linux/aarch64`).
+- Native 64-bit container support (`linux/amd64`).
 - Automatic MQTT broker connection to `core-mosquitto:1883` with schema validation.
 - Responsive React 19 administrative dashboard with dark mode and mobile-first design.
 - Universal access control engine supporting Z-Wave, Zigbee, Ring, and Matter devices.
