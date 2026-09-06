@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using CodeMaster.Core.DTOs;
 using CodeMaster.Core.Models;
+using CodeMaster.Core.Security;
 using CodeMaster.Data.Repositories;
 using Microsoft.Extensions.Logging;
 
@@ -137,58 +138,8 @@ public class AccessPolicyEvaluator : IAccessPolicyEvaluator
         return false;
     }
 
-    public static bool VerifyPinHash(string pin, string storedHash)
-    {
-        if (string.IsNullOrEmpty(pin) || string.IsNullOrEmpty(storedHash))
-        {
-            return false;
-        }
-
-        if (string.Equals(pin, storedHash, StringComparison.OrdinalIgnoreCase))
-        {
-            return true;
-        }
-
-        var sha256Hex = ComputeSha256Hex(pin);
-        if (string.Equals(sha256Hex, storedHash, StringComparison.OrdinalIgnoreCase))
-        {
-            return true;
-        }
-
-        char[] delimiters = [':', '$'];
-        var delimiterIndex = storedHash.IndexOfAny(delimiters);
-        if (delimiterIndex > 0 && delimiterIndex < storedHash.Length - 1)
-        {
-            var part1 = storedHash[..delimiterIndex];
-            var part2 = storedHash[(delimiterIndex + 1)..];
-
-            var hash1 = ComputeSha256Hex(part1 + pin);
-            if (string.Equals(hash1, part2, StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
-
-            var hash1b = ComputeSha256Hex(pin + part1);
-            if (string.Equals(hash1b, part2, StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
-
-            var hash2 = ComputeSha256Hex(part2 + pin);
-            if (string.Equals(hash2, part1, StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
-
-            var hash2b = ComputeSha256Hex(pin + part2);
-            if (string.Equals(hash2b, part1, StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
+    public static bool VerifyPinHash(string pin, string storedHash) =>
+        PinSecurityHelper.VerifyPinHash(pin, storedHash);
 
     public static string ComputeSha256Hex(string input)
     {

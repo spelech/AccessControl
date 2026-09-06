@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Text.Json;
 using CodeMaster.Core.Interfaces;
 using CodeMaster.Core.Models;
+using CodeMaster.Core.Transports;
 using CodeMaster.Data.Repositories;
 using CodeMaster.Engine.Mqtt;
 using CodeMaster.Engine.Providers.Locks;
@@ -12,7 +13,9 @@ namespace CodeMaster.Engine.Services;
 public class DoorOperationService : IDoorOperationService
 {
     private readonly IAccessPointRepository _doorRepo;
+    private readonly IHardwareSlotRepository? _slotRepo;
     private readonly IMqttClientService? _mqttClient;
+    private readonly ITransportRegistry? _transportRegistry;
     private readonly ILogger<DoorOperationService> _logger;
 
     private static readonly ConcurrentDictionary<string, LockState> _lockStates = new();
@@ -22,11 +25,15 @@ public class DoorOperationService : IDoorOperationService
     public DoorOperationService(
         IAccessPointRepository doorRepo,
         ILogger<DoorOperationService> logger,
-        IMqttClientService? mqttClient = null)
+        IMqttClientService? mqttClient = null,
+        IHardwareSlotRepository? slotRepo = null,
+        ITransportRegistry? transportRegistry = null)
     {
         _doorRepo = doorRepo;
         _logger = logger;
         _mqttClient = mqttClient;
+        _slotRepo = slotRepo;
+        _transportRegistry = transportRegistry;
     }
 
     public Task<LockState> GetDoorLockStateAsync(string doorId, CancellationToken ct = default)
@@ -51,6 +58,11 @@ public class DoorOperationService : IDoorOperationService
 
     public Task<int?> GetRemainingAutoLockSecondsAsync(string doorId, CancellationToken ct = default)
     {
+        if (_autoLockStateMachines.TryGetValue(doorId, out var sm))
+        {
+            return Task.FromResult(sm.RemainingSeconds);
+        }
+
         return Task.FromResult<int?>(null);
     }
 
@@ -111,6 +123,22 @@ public class DoorOperationService : IDoorOperationService
 
     public void UpdateDoorStates(string doorId, LockState? lockState = null, DoorContactState? contactState = null)
     {
+        if (!_autoLockStateMachines.ContainsKey(doorId))
+        {
+            try
+            {
+                var door = _doorRepo.GetByIdAsync(doorId).GetAwaiter().GetResult();
+                if (door != null)
+                {
+                    GetOrCreateStateMachine(door);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Failed to pre-initialize state machine for door '{DoorId}'", doorId);
+            }
+        }
+
         if (lockState.HasValue)
         {
             _lockStates[doorId] = lockState.Value;
@@ -128,6 +156,57 @@ public class DoorOperationService : IDoorOperationService
                 sm.OnDoorContactChanged(contactState.Value);
             }
         }
+    }
+
+    public async Task<int> ClearUserHardwareSlotsAsync(string userId, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(userId) || _slotRepo == null)
+        {
+            return 0;
+        }
+
+        var doors = await _doorRepo.GetAllAsync(ct);
+        var clearedCount = 0;
+
+        foreach (var door in doors)
+        {
+            var slots = await _slotRepo.GetSlotsForDoorAsync(door.Id, ct);
+            var userSlots = slots.Where(s => s.UserId == userId).ToList();
+            if (userSlots.Count == 0)
+            {
+                continue;
+            }
+
+            var provider = CreateLockProvider(door);
+
+            foreach (var slot in userSlots)
+            {
+                _logger.LogInformation("Clearing physical hardware slot {SlotNumber} for user {UserId} on door '{DoorName}' ({DoorId})",
+                    slot.SlotNumber, userId, door.Name, door.Id);
+
+                await _slotRepo.UpdateSlotSyncStatusAsync(slot.Id, SlotSyncStatus.Deleting, null, ct);
+
+                var cleared = true;
+                if (provider.Capabilities.HasFlag(LockCapabilities.UserCodes))
+                {
+                    cleared = await provider.ClearSlotCodeAsync(slot.SlotNumber, ct);
+                }
+
+                if (cleared)
+                {
+                    await _slotRepo.ClearSlotAsync(slot.Id, ct);
+                    await _slotRepo.UpdateSlotSyncStatusAsync(slot.Id, SlotSyncStatus.Synced, DateTime.UtcNow, ct);
+                    clearedCount++;
+                }
+                else
+                {
+                    _logger.LogWarning("Failed to clear physical hardware slot {SlotNumber} on door '{DoorName}'", slot.SlotNumber, door.Name);
+                    await _slotRepo.UpdateSlotSyncStatusAsync(slot.Id, SlotSyncStatus.Error, null, ct);
+                }
+            }
+        }
+
+        return clearedCount;
     }
 
     private AutoLockStateMachine GetOrCreateStateMachine(AccessPoint door)
@@ -148,23 +227,23 @@ public class DoorOperationService : IDoorOperationService
     private ILockProvider CreateLockProvider(AccessPoint door)
     {
         var configJson = door.LockConfigJson;
-        string? topic = null;
+        string? target = null;
         if (!string.IsNullOrWhiteSpace(configJson))
         {
             try
             {
                 using var doc = JsonDocument.Parse(configJson);
-                if (doc.RootElement.TryGetProperty("topic", out var tProp))
+                if (doc.RootElement.TryGetProperty("nodeId", out var nProp))
                 {
-                    topic = tProp.GetString();
+                    target = nProp.GetString();
+                }
+                else if (doc.RootElement.TryGetProperty("topic", out var tProp))
+                {
+                    target = tProp.GetString();
                 }
                 else if (doc.RootElement.TryGetProperty("lockTopic", out var ltProp))
                 {
-                    topic = ltProp.GetString();
-                }
-                else if (doc.RootElement.TryGetProperty("nodeId", out var nProp))
-                {
-                    topic = nProp.GetString();
+                    target = ltProp.GetString();
                 }
             }
             catch
@@ -176,11 +255,26 @@ public class DoorOperationService : IDoorOperationService
         var lockType = door.LockProviderType ?? string.Empty;
         if (lockType.Contains("ZWave", StringComparison.OrdinalIgnoreCase))
         {
-            return new ZWaveJsMqttLockProvider(topic ?? door.Id, 0, _mqttClient);
+            if (_transportRegistry != null)
+            {
+                var wsTransport = _transportRegistry.GetTransport<CodeMaster.Core.Transports.ILockTransport>("zwave_ws");
+                if (wsTransport != null && wsTransport.IsConnected && !string.IsNullOrEmpty(target) && CodeMaster.Engine.Transports.ZWaveWebSocketTransport.TryParseNodeId(target, out var nodeId))
+                {
+                    return new CodeMaster.Engine.Transports.TransportLockProviderAdapter(wsTransport, nodeId.ToString());
+                }
+
+                var mqttTransport = _transportRegistry.GetTransport<CodeMaster.Core.Transports.ILockTransport>("zwave_mqtt");
+                if (mqttTransport != null && mqttTransport.IsConnected)
+                {
+                    return new CodeMaster.Engine.Transports.TransportLockProviderAdapter(mqttTransport, target ?? door.Id);
+                }
+            }
+
+            return new ZWaveJsMqttLockProvider(target ?? door.Id, 0, _mqttClient);
         }
 
-        var cmdTopic = topic ?? $"codemaster/{door.Id}/lock/set";
-        var stateTopic = topic ?? $"codemaster/{door.Id}/lock/state";
+        var cmdTopic = target ?? $"codemaster/{door.Id}/lock/set";
+        var stateTopic = target ?? $"codemaster/{door.Id}/lock/state";
         return new GenericMqttLockProvider(cmdTopic, stateTopic, "LOCK", "UNLOCK", _mqttClient);
     }
 }

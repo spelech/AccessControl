@@ -76,4 +76,66 @@ describe('apiClient and Ingress base path resolution', () => {
 
     await expect(apiClient.doors.get('invalid-id')).rejects.toThrow('API Error [404] Not Found: Resource not found');
   });
+
+  it('fetches settings and calls GET /api/settings', async () => {
+    const mockSettingsRes = {
+      settings: { zWaveTransportType: 'WebSocket', zWaveWebSocketUrl: 'ws://10.0.0.10:8106' },
+      transports: [],
+    };
+
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => mockSettingsRes,
+    });
+
+    const res = await apiClient.settings.get();
+    expect(res).toEqual(mockSettingsRes);
+    expect(global.fetch).toHaveBeenCalledWith('/api/settings', expect.objectContaining({
+      headers: expect.objectContaining({ 'Content-Type': 'application/json' }),
+    }));
+  });
+
+  it('updates settings and calls PUT /api/settings', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ success: true, message: 'Settings saved' }),
+    });
+
+    const res = await apiClient.settings.update({ zWaveTransportType: 'Mqtt' });
+    expect(res.success).toBe(true);
+    expect(global.fetch).toHaveBeenCalledWith('/api/settings', expect.objectContaining({
+      method: 'PUT',
+      body: JSON.stringify({ zWaveTransportType: 'Mqtt' }),
+    }));
+  });
+
+  it('tests connection and calls POST /api/settings/test-connection', async () => {
+    const mockTestRes = {
+      success: true,
+      latencyMs: 35,
+      driverVersion: '15.15.3',
+      serverVersion: '3.2.1',
+      nodeCount: 2,
+      detectedNodes: [
+        { nodeId: 39, name: 'Front Door Lock', deviceType: 'lock', model: 'Allegion BE469ZP' }
+      ],
+      message: 'Connected',
+    };
+
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => mockTestRes,
+    });
+
+    const res = await apiClient.settings.testConnection({ transportType: 'WebSocket', endpointUrl: 'ws://10.0.0.10:8106' });
+    expect(res).toEqual(mockTestRes);
+    expect(global.fetch).toHaveBeenCalledWith('/api/settings/test-connection', expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({ transportType: 'WebSocket', endpointUrl: 'ws://10.0.0.10:8106' }),
+    }));
+  });
 });
+

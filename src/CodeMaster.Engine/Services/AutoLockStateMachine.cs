@@ -54,6 +54,23 @@ public class AutoLockStateMachine : IDisposable
     public bool RetryOnFailure { get; set; }
     public int RetryDelaySeconds { get; set; }
     public bool IsNight { get; set; }
+    private DateTimeOffset? _countdownExpiresAt;
+
+    public int? RemainingSeconds
+    {
+        get
+        {
+            lock (_syncLock)
+            {
+                if (Status != AutoLockStatus.CountingDown || !_countdownExpiresAt.HasValue)
+                {
+                    return null;
+                }
+                var diff = (_countdownExpiresAt.Value - _timeProvider.GetUtcNow()).TotalSeconds;
+                return Math.Max(0, (int)Math.Ceiling(diff));
+            }
+        }
+    }
 
     public event Action<AutoLockStatus>? StatusChanged;
     public event Func<Task<bool>>? LockRequested;
@@ -206,6 +223,7 @@ public class AutoLockStateMachine : IDisposable
     {
         CancelCountdownTimer();
         var delay = TimeSpan.FromSeconds(IsNight ? NightSeconds : DaySeconds);
+        _countdownExpiresAt = _timeProvider.GetUtcNow().Add(delay);
         _countdownTimer = _timeProvider.CreateTimer(
             _ => _ = TriggerCountdownExpiredAsync(),
             null,
@@ -226,6 +244,7 @@ public class AutoLockStateMachine : IDisposable
 
     private void CancelCountdownTimer()
     {
+        _countdownExpiresAt = null;
         _countdownTimer?.Dispose();
         _countdownTimer = null;
     }

@@ -4,7 +4,7 @@ on:
   push:
     branches: [ main, develop ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, develop ]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -100,8 +100,10 @@ jobs:
         run: dotnet build --configuration Release
 
       - name: Start server & probe health
+        env:
+          ASPNETCORE_URLS: "http://localhost:8150"
         run: |
-          dotnet run --project src/CodeMaster.Web/CodeMaster.Web.csproj --configuration Release &
+          dotnet run --project src/CodeMaster.Web/CodeMaster.Web.csproj --configuration Release --no-build &
           APP_PID=$!
           echo "Server started with PID $APP_PID"
 

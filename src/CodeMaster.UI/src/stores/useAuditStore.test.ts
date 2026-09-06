@@ -93,4 +93,50 @@ describe('useAuditStore', () => {
     const state = useAuditStore.getState();
     expect(state.logs).toHaveLength(0);
   });
+
+  it('starts live stream and handles incoming SSE messages', () => {
+    let messageHandler: ((e: { data: string }) => void) | null = null;
+    let closed = false;
+
+    class MockEventSource {
+      url: string;
+      onmessage: ((e: { data: string }) => void) | null = null;
+      onerror: (() => void) | null = null;
+
+      constructor(url: string) {
+        this.url = url;
+        messageHandler = (e: { data: string }) => {
+          if (this.onmessage) this.onmessage(e);
+        };
+      }
+
+      close() {
+        closed = true;
+      }
+    }
+
+    vi.stubGlobal('EventSource', MockEventSource);
+
+    useAuditStore.getState().startLiveStream();
+
+    const sampleLog: AccessLog = {
+      id: 'log-sse-1',
+      accessPointId: 'door-1',
+      eventType: 'Unlocked',
+      method: 'Manual',
+      timestamp: '2026-09-06T12:00:00Z',
+    };
+
+    // Simulate SSE message arrival
+    expect(messageHandler).not.toBeNull();
+    messageHandler!({ data: JSON.stringify(sampleLog) });
+
+    expect(useAuditStore.getState().logs).toContainEqual(sampleLog);
+
+    // Stop stream and verify close() is called
+    useAuditStore.getState().stopLiveStream();
+    expect(closed).toBe(true);
+
+    vi.unstubAllGlobals();
+  });
 });

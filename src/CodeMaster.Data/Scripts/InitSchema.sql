@@ -64,7 +64,8 @@ CREATE TABLE IF NOT EXISTS AccessPolicies (
     ValidFrom TEXT,                   -- ISO8601 UTC
     ValidUntil TEXT,                  -- ISO8601 UTC
     RemainingUses INTEGER,            -- Decremented on unlock for OneTime schedules
-    IsEnabled INTEGER NOT NULL DEFAULT 1
+    IsEnabled INTEGER NOT NULL DEFAULT 1,
+    TimeZoneId TEXT
 );
 
 -- 5. Access Assignments (User or Group <-> AccessPoint <-> Policy)
@@ -111,3 +112,10 @@ CREATE TABLE IF NOT EXISTS AccessLogs (
 
 CREATE INDEX IF NOT EXISTS idx_access_logs_point_time ON AccessLogs(AccessPointId, Timestamp DESC);
 CREATE INDEX IF NOT EXISTS idx_assignments_point ON AccessAssignments(AccessPointId);
+
+-- 8. System & Connectivity Settings
+CREATE TABLE IF NOT EXISTS system_settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);

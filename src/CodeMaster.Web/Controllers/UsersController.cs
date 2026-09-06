@@ -1,6 +1,8 @@
 using System.Security.Cryptography;
 using System.Text;
+using CodeMaster.Core.Interfaces;
 using CodeMaster.Core.Models;
+using CodeMaster.Core.Security;
 using CodeMaster.Data.Repositories;
 using Microsoft.AspNetCore.Mvc;
 
@@ -32,6 +34,9 @@ public class UsersController : ControllerBase
     private readonly ICredentialRepository _credentialRepo;
     private readonly IAccessPolicyRepository _policyRepo;
     private readonly IHardwareSlotRepository _slotRepo;
+    private readonly IAccessPointRepository _doorRepo;
+    private readonly ICredentialEncryptionService? _encryptionService;
+    private readonly IDoorOperationService? _doorOps;
     private readonly ILogger<UsersController> _logger;
 
     public UsersController(
@@ -39,13 +44,19 @@ public class UsersController : ControllerBase
         ICredentialRepository credentialRepo,
         IAccessPolicyRepository policyRepo,
         IHardwareSlotRepository slotRepo,
-        ILogger<UsersController> logger)
+        IAccessPointRepository doorRepo,
+        ILogger<UsersController> logger,
+        ICredentialEncryptionService? encryptionService = null,
+        IDoorOperationService? doorOps = null)
     {
         _userRepo = userRepo;
         _credentialRepo = credentialRepo;
         _policyRepo = policyRepo;
         _slotRepo = slotRepo;
+        _doorRepo = doorRepo;
         _logger = logger;
+        _encryptionService = encryptionService;
+        _doorOps = doorOps;
     }
 
     [HttpGet]
@@ -166,15 +177,15 @@ public class UsersController : ControllerBase
 
         if (!string.IsNullOrWhiteSpace(request.Pin))
         {
-            var hashBytes = SHA256.HashData(Encoding.UTF8.GetBytes(request.Pin));
-            var hashHex = Convert.ToHexString(hashBytes).ToLowerInvariant();
+            var encryptedPin = _encryptionService != null ? _encryptionService.Encrypt(request.Pin) : request.Pin;
+            var saltedHash = PinSecurityHelper.CreateSaltedHash(request.Pin);
 
             var cred = new Credential
             {
                 UserId = user.Id,
                 Type = CredentialType.PIN,
-                EncryptedValue = request.Pin,
-                HashedValue = hashHex,
+                EncryptedValue = encryptedPin,
+                HashedValue = saltedHash,
                 PinLength = request.Pin.Length,
                 Label = request.PinLabel ?? "PIN",
                 CreatedAt = DateTime.UtcNow
@@ -190,18 +201,22 @@ public class UsersController : ControllerBase
             }
             await _policyRepo.InsertAsync(request.Policy, ct);
 
-            if (request.DoorIds != null)
+            var targetDoors = request.DoorIds;
+            if (targetDoors == null || targetDoors.Count == 0)
             {
-                foreach (var doorId in request.DoorIds)
+                var allDoors = await _doorRepo.GetAllAsync(ct);
+                targetDoors = allDoors.Select(d => d.Id).ToList();
+            }
+
+            foreach (var doorId in targetDoors)
+            {
+                var assignment = new AccessAssignment
                 {
-                    var assignment = new AccessAssignment
-                    {
-                        AccessPointId = doorId,
-                        UserId = user.Id,
-                        PolicyId = request.Policy.Id
-                    };
-                    await _policyRepo.AssignPolicyAsync(assignment, ct);
-                }
+                    AccessPointId = doorId,
+                    UserId = user.Id,
+                    PolicyId = request.Policy.Id
+                };
+                await _policyRepo.AssignPolicyAsync(assignment, ct);
             }
         }
 
@@ -236,6 +251,19 @@ public class UsersController : ControllerBase
             return NotFound(new { error = $"User '{id}' not found" });
         }
 
+        if (_doorOps != null)
+        {
+            try
+            {
+                var cleared = await _doorOps.ClearUserHardwareSlotsAsync(id, ct);
+                _logger.LogInformation("Cleared {Count} physical hardware slots for user '{Name}' ({Id})", cleared, existing.Name, id);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error clearing hardware slots for user '{Name}' ({Id})", existing.Name, id);
+            }
+        }
+
         await _userRepo.DeleteAsync(id, ct);
         _logger.LogInformation("Deleted user '{Name}' ({Id})", existing.Name, id);
 
@@ -266,20 +294,20 @@ public class UsersController : ControllerBase
             return NotFound(new { error = $"User '{id}' not found" });
         }
 
-        if (string.IsNullOrWhiteSpace(request.Pin))
+        if (string.IsNullOrWhiteSpace(request.Pin) || request.Pin.Length < 4 || request.Pin.Length > 8 || !request.Pin.All(char.IsAsciiDigit))
         {
-            return BadRequest(new { error = "PIN cannot be empty" });
+            return BadRequest(new { error = "PIN must be between 4 and 8 numeric digits (0-9)." });
         }
 
-        var hashBytes = SHA256.HashData(Encoding.UTF8.GetBytes(request.Pin));
-        var hashHex = Convert.ToHexString(hashBytes).ToLowerInvariant();
+        var encryptedPin = _encryptionService != null ? _encryptionService.Encrypt(request.Pin) : request.Pin;
+        var saltedHash = PinSecurityHelper.CreateSaltedHash(request.Pin);
 
         var credential = new Credential
         {
             UserId = id,
             Type = CredentialType.PIN,
-            EncryptedValue = request.Pin,
-            HashedValue = hashHex,
+            EncryptedValue = encryptedPin,
+            HashedValue = saltedHash,
             PinLength = request.Pin.Length,
             Label = request.Label ?? "PIN",
             CreatedAt = DateTime.UtcNow
@@ -329,7 +357,33 @@ public class UsersController : ControllerBase
         }
         else
         {
-            await _policyRepo.UpdateAsync(policy, ct);
+            var existingPolicy = await _policyRepo.GetByIdAsync(policy.Id, ct);
+            if (existingPolicy == null)
+            {
+                await _policyRepo.InsertAsync(policy, ct);
+            }
+            else
+            {
+                await _policyRepo.UpdateAsync(policy, ct);
+            }
+        }
+
+        var targetDoors = policy.DoorIds;
+        if (targetDoors == null || targetDoors.Count == 0)
+        {
+            var allDoors = await _doorRepo.GetAllAsync(ct);
+            targetDoors = allDoors.Select(d => d.Id).ToList();
+        }
+
+        foreach (var doorId in targetDoors)
+        {
+            var assignment = new AccessAssignment
+            {
+                AccessPointId = doorId,
+                UserId = user.Id,
+                PolicyId = policy.Id
+            };
+            await _policyRepo.AssignPolicyAsync(assignment, ct);
         }
 
         return Ok(policy);

@@ -27,9 +27,11 @@ public class AccessPolicy
     public DateTime? ValidUntil { get; set; }
     public int? RemainingUses { get; set; }
     public bool IsEnabled { get; set; } = true;
+    public List<string>? DoorIds { get; set; }
+    public string? TimeZoneId { get; set; }
 
     /// <summary>
-    /// Evaluates if the policy is active at the specified UTC time.
+    /// Evaluates if the policy is active at the specified UTC time, adjusting for configured TimeZoneId if present.
     /// </summary>
     public bool IsActiveAt(DateTime utcTime)
     {
@@ -48,15 +50,30 @@ public class AccessPolicy
             return false;
         }
 
+        var localTime = utcTime;
+        if (!string.IsNullOrWhiteSpace(TimeZoneId))
+        {
+            try
+            {
+                var tz = TimeZoneInfo.FindSystemTimeZoneById(TimeZoneId);
+                var normalizedUtc = utcTime.Kind == DateTimeKind.Utc ? utcTime : DateTime.SpecifyKind(utcTime, DateTimeKind.Utc);
+                localTime = TimeZoneInfo.ConvertTimeFromUtc(normalizedUtc, tz);
+            }
+            catch
+            {
+                // Fallback to UTC if timezone is invalid
+            }
+        }
+
         return ScheduleType switch
         {
             ScheduleType.Always => true,
 
             ScheduleType.OneTime => !RemainingUses.HasValue || RemainingUses.Value > 0,
 
-            ScheduleType.DateRange => IsTimeWindowActive(utcTime),
+            ScheduleType.DateRange => IsTimeWindowActive(localTime),
 
-            ScheduleType.WeeklyRecurring => IsDayOfWeekActive(utcTime) && IsTimeWindowActive(utcTime),
+            ScheduleType.WeeklyRecurring => IsDayOfWeekActive(localTime) && IsTimeWindowActive(localTime),
 
             _ => false
         };

@@ -1,4 +1,15 @@
-import type { AccessPoint, User, Credential, AccessPolicy, AccessLog, DiscoveredTopic } from '../types';
+import type {
+  AccessPoint,
+  User,
+  Credential,
+  AccessPolicy,
+  AccessLog,
+  DiscoveredTopic,
+  SystemSettings,
+  SettingsResponse,
+  TestConnectionRequest,
+  TestConnectionResult,
+} from '../types';
 
 declare global {
   interface Window {
@@ -157,4 +168,24 @@ export const apiClient = {
       return request<DiscoveredTopic[]>('/api/discovery');
     },
   },
+
+  // System Settings & Transports
+  settings: {
+    get: async (): Promise<SettingsResponse> => {
+      return request<SettingsResponse>('/api/settings');
+    },
+    update: async (settingsData: Partial<SystemSettings>): Promise<{ success: boolean; message?: string }> => {
+      return request<{ success: boolean; message?: string }>('/api/settings', {
+        method: 'PUT',
+        body: JSON.stringify(settingsData),
+      });
+    },
+    testConnection: async (req: TestConnectionRequest): Promise<TestConnectionResult> => {
+      return request<TestConnectionResult>('/api/settings/test-connection', {
+        method: 'POST',
+        body: JSON.stringify(req),
+      });
+    },
+  },
 };
+

@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Json;
 using CodeMaster.Core.Interfaces;
 using CodeMaster.Core.Models;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -13,6 +14,7 @@ public class AppriseNotificationDispatcher : INotificationDispatcher
     private readonly AppriseOptions _options;
     private readonly ILogger<AppriseNotificationDispatcher>? _logger;
 
+    [ActivatorUtilitiesConstructor]
     public AppriseNotificationDispatcher(
         HttpClient httpClient,
         IOptions<AppriseOptions> options,

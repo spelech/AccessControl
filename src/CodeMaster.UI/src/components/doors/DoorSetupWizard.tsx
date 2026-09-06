@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { X, Sparkles, Shield, KeyRound, DoorClosed, Timer } from 'lucide-react';
 import { apiClient } from '../../api/apiClient';
-import type { AccessPoint, DiscoveredTopic } from '../../types';
+import { useSettingsStore } from '../../stores/useSettingsStore';
+import type { AccessPoint, DiscoveredTopic, DetectedZWaveNode } from '../../types';
 
 interface DoorSetupWizardProps {
   isOpen: boolean;
@@ -10,17 +11,29 @@ interface DoorSetupWizardProps {
   onSave: (doorData: Partial<AccessPoint>) => Promise<void>;
 }
 
+const DEFAULT_DETECTED_NODES: DetectedZWaveNode[] = [
+  { nodeId: 39, name: 'Front Door Lock', deviceType: 'lock', model: 'Allegion BE469ZP' },
+  { nodeId: 40, name: 'Laundry Room Keypad', deviceType: 'keypad', model: 'Ring 4AK1SZ' },
+];
+
 export const DoorSetupWizard: React.FC<DoorSetupWizardProps> = ({
   isOpen,
   initialData,
   onClose,
   onSave,
 }) => {
+  const { settings, detectedNodes, fetchSettings } = useSettingsStore();
+  const isWebSocketMode = settings.zWaveTransportType === 'WebSocket';
+
   const [name, setName] = useState('');
   const [lockProviderType, setLockProviderType] = useState('AugustZWave');
   const [lockTopic, setLockTopic] = useState('');
+  const [selectedLockNodeId, setSelectedLockNodeId] = useState<number | null>(null);
+
   const [keypadProviderType, setKeypadProviderType] = useState('RingKeypad');
   const [keypadTopic, setKeypadTopic] = useState('');
+  const [selectedKeypadNodeId, setSelectedKeypadNodeId] = useState<number | null>(null);
+
   const [doorSensorProviderType, setDoorSensorProviderType] = useState('AqaraZigbee');
   const [doorSensorTopic, setDoorSensorTopic] = useState('');
   const [autoLockEnabled, setAutoLockEnabled] = useState(true);
@@ -45,16 +58,20 @@ export const DoorSetupWizard: React.FC<DoorSetupWizardProps> = ({
 
       try {
         const lockCfg = JSON.parse(initialData.lockConfigJson || '{}');
-        setLockTopic(lockCfg.topic || lockCfg.lockTopic || '');
+        setLockTopic(lockCfg.topic || lockCfg.lockTopic || (lockCfg.nodeId ? `node_${lockCfg.nodeId}` : ''));
+        setSelectedLockNodeId(lockCfg.nodeId ? Number(lockCfg.nodeId) : null);
       } catch {
         setLockTopic('');
+        setSelectedLockNodeId(null);
       }
 
       try {
         const kpCfg = JSON.parse(initialData.keypadConfigJson || '{}');
-        setKeypadTopic(kpCfg.topic || kpCfg.keypadTopic || '');
+        setKeypadTopic(kpCfg.topic || kpCfg.keypadTopic || (kpCfg.nodeId ? `node_${kpCfg.nodeId}` : ''));
+        setSelectedKeypadNodeId(kpCfg.nodeId ? Number(kpCfg.nodeId) : null);
       } catch {
         setKeypadTopic('');
+        setSelectedKeypadNodeId(null);
       }
 
       try {
@@ -67,8 +84,10 @@ export const DoorSetupWizard: React.FC<DoorSetupWizardProps> = ({
       setName('');
       setLockProviderType('AugustZWave');
       setLockTopic('zwave/front_door_lock');
+      setSelectedLockNodeId(null);
       setKeypadProviderType('RingKeypad');
       setKeypadTopic('ring/keypad_entry');
+      setSelectedKeypadNodeId(null);
       setDoorSensorProviderType('AqaraZigbee');
       setDoorSensorTopic('zigbee2mqtt/front_door_contact');
       setAutoLockEnabled(true);
@@ -80,6 +99,8 @@ export const DoorSetupWizard: React.FC<DoorSetupWizardProps> = ({
 
   useEffect(() => {
     if (!isOpen) return;
+
+    fetchSettings().catch(() => {});
 
     apiClient.discovery
       .getTopics()
@@ -105,7 +126,7 @@ export const DoorSetupWizard: React.FC<DoorSetupWizardProps> = ({
           { topic: 'zigbee2mqtt/entry_contact', deviceType: 'sensor', description: 'Aqara Contact Sensor' },
         ]);
       });
-  }, [isOpen]);
+  }, [isOpen, fetchSettings]);
 
   if (!isOpen) return null;
 
@@ -119,14 +140,24 @@ export const DoorSetupWizard: React.FC<DoorSetupWizardProps> = ({
     setValidationError(null);
     setIsSaving(true);
 
+    const lockConfig: Record<string, unknown> = { topic: lockTopic };
+    if (selectedLockNodeId !== null) {
+      lockConfig.nodeId = selectedLockNodeId;
+    }
+
+    const keypadConfig: Record<string, unknown> = { topic: keypadTopic };
+    if (selectedKeypadNodeId !== null) {
+      keypadConfig.nodeId = selectedKeypadNodeId;
+    }
+
     try {
       await onSave({
         ...(initialData?.id ? { id: initialData.id } : {}),
         name: name.trim(),
         lockProviderType,
-        lockConfigJson: JSON.stringify({ topic: lockTopic }),
+        lockConfigJson: JSON.stringify(lockConfig),
         keypadProviderType: keypadProviderType === 'None' ? null : keypadProviderType,
-        keypadConfigJson: keypadProviderType === 'None' ? null : JSON.stringify({ topic: keypadTopic }),
+        keypadConfigJson: keypadProviderType === 'None' ? null : JSON.stringify(keypadConfig),
         doorSensorProviderType: doorSensorProviderType === 'None' ? null : doorSensorProviderType,
         doorSensorConfigJson: doorSensorProviderType === 'None' ? null : JSON.stringify({ topic: doorSensorTopic }),
         autoLockEnabled,
@@ -146,6 +177,10 @@ export const DoorSetupWizard: React.FC<DoorSetupWizardProps> = ({
   const lockDiscovered = discoveredTopics.filter((t) => t.deviceType === 'lock');
   const keypadDiscovered = discoveredTopics.filter((t) => t.deviceType === 'keypad');
   const sensorDiscovered = discoveredTopics.filter((t) => t.deviceType === 'sensor');
+
+  const effectiveDetectedNodes = detectedNodes.length > 0 ? detectedNodes : DEFAULT_DETECTED_NODES;
+  const detectedLockNodes = effectiveDetectedNodes.filter((n) => n.deviceType === 'lock');
+  const detectedKeypadNodes = effectiveDetectedNodes.filter((n) => n.deviceType === 'keypad');
 
   return (
     <div className="modal-backdrop" onClick={onClose} role="dialog" aria-modal="true">
@@ -204,10 +239,38 @@ export const DoorSetupWizard: React.FC<DoorSetupWizardProps> = ({
               <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>Lock Provider</span>
             </div>
 
+            {/* Detected Z-Wave Locks Quick-Pick */}
+            {isWebSocketMode && detectedLockNodes.length > 0 && (
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.6rem' }}>
+                <span style={{ fontWeight: 600, display: 'block', marginBottom: '0.3rem' }}>
+                  Detected Z-Wave Locks (WebSocket):
+                </span>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
+                  {detectedLockNodes.map((node) => (
+                    <button
+                      key={node.nodeId}
+                      type="button"
+                      className={selectedLockNodeId === node.nodeId ? 'btn-primary' : 'btn-outline'}
+                      onClick={() => {
+                        setSelectedLockNodeId(node.nodeId);
+                        setLockProviderType('ZWaveWebSocket');
+                        setLockTopic(`node_${node.nodeId}`);
+                        if (!name) setName(node.name);
+                      }}
+                      style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem', minHeight: '26px' }}
+                    >
+                      Node {node.nodeId}: {node.name} ({node.model})
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '0.75rem' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '0.25rem' }}>Provider Type</label>
                 <select value={lockProviderType} onChange={(e) => setLockProviderType(e.target.value)}>
+                  {isWebSocketMode && <option value="ZWaveWebSocket">Z-Wave JS WebSocket (Direct)</option>}
                   <option value="AugustZWave">August Smart Lock (Z-Wave)</option>
                   <option value="SchlageZWave">Schlage Connect (Z-Wave)</option>
                   <option value="YaleZWave">Yale Assure (Z-Wave)</option>
@@ -217,17 +280,19 @@ export const DoorSetupWizard: React.FC<DoorSetupWizardProps> = ({
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '0.25rem' }}>MQTT Topic</label>
+                <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '0.25rem' }}>
+                  {isWebSocketMode ? 'Z-Wave Node / Topic' : 'MQTT Topic'}
+                </label>
                 <input
                   type="text"
-                  placeholder="zwave/front_door"
+                  placeholder={isWebSocketMode ? 'node_39' : 'zwave/front_door'}
                   value={lockTopic}
                   onChange={(e) => setLockTopic(e.target.value)}
                 />
               </div>
             </div>
 
-            {lockDiscovered.length > 0 && (
+            {lockDiscovered.length > 0 && !isWebSocketMode && (
               <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
                 <span>Auto-detected: </span>
                 {lockDiscovered.map((item) => (
@@ -252,6 +317,32 @@ export const DoorSetupWizard: React.FC<DoorSetupWizardProps> = ({
               <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>Keypad Provider (Optional)</span>
             </div>
 
+            {/* Detected Z-Wave Keypads Quick-Pick */}
+            {isWebSocketMode && detectedKeypadNodes.length > 0 && (
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.6rem' }}>
+                <span style={{ fontWeight: 600, display: 'block', marginBottom: '0.3rem' }}>
+                  Detected Z-Wave Keypads (WebSocket):
+                </span>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
+                  {detectedKeypadNodes.map((node) => (
+                    <button
+                      key={node.nodeId}
+                      type="button"
+                      className={selectedKeypadNodeId === node.nodeId ? 'btn-primary' : 'btn-outline'}
+                      onClick={() => {
+                        setSelectedKeypadNodeId(node.nodeId);
+                        setKeypadProviderType('ZWaveKeypad');
+                        setKeypadTopic(`node_${node.nodeId}`);
+                      }}
+                      style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem', minHeight: '26px' }}
+                    >
+                      Node {node.nodeId}: {node.name} ({node.model})
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '0.75rem' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '0.25rem' }}>Keypad Type</label>
@@ -264,10 +355,12 @@ export const DoorSetupWizard: React.FC<DoorSetupWizardProps> = ({
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '0.25rem' }}>Keypad Topic</label>
+                <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '0.25rem' }}>
+                  {isWebSocketMode ? 'Keypad Node / Topic' : 'Keypad Topic'}
+                </label>
                 <input
                   type="text"
-                  placeholder="ring/keypad_front"
+                  placeholder={isWebSocketMode ? 'node_40' : 'ring/keypad_front'}
                   value={keypadTopic}
                   disabled={keypadProviderType === 'None'}
                   onChange={(e) => setKeypadTopic(e.target.value)}
@@ -275,7 +368,7 @@ export const DoorSetupWizard: React.FC<DoorSetupWizardProps> = ({
               </div>
             </div>
 
-            {keypadDiscovered.length > 0 && keypadProviderType !== 'None' && (
+            {keypadDiscovered.length > 0 && keypadProviderType !== 'None' && !isWebSocketMode && (
               <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
                 <span>Auto-detected: </span>
                 {keypadDiscovered.map((item) => (

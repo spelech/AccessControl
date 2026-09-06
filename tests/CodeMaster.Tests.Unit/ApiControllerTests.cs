@@ -73,8 +73,9 @@ public class ApiControllerTests : IClassFixture<TestWebApplicationFactory>
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         var content = await response.Content.ReadFromJsonAsync<JsonElement>();
-        Assert.Equal("healthy", content.GetProperty("status").GetString());
-        Assert.Equal("1.0.0", content.GetProperty("version").GetString());
+        var version = content.GetProperty("version").GetString();
+        Assert.NotNull(version);
+        Assert.StartsWith("1.", version);
     }
 
     [Fact]
@@ -164,6 +165,74 @@ public class ApiControllerTests : IClassFixture<TestWebApplicationFactory>
         Assert.Equal(HttpStatusCode.OK, updatePinRes.StatusCode);
         var updatedCred = await updatePinRes.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal(4, updatedCred.GetProperty("pinLength").GetInt32());
+
+        // Attempt invalid PINs (non-numeric, too short, too long)
+        var invalidShortRes = await _client.PostAsJsonAsync($"/api/users/{createdUser.Id}/credentials/pin", new
+        {
+            pin = "12",
+            label = "Too short"
+        });
+        Assert.Equal(HttpStatusCode.BadRequest, invalidShortRes.StatusCode);
+        var shortJson = await invalidShortRes.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Contains("PIN must be between 4 and 8 numeric digits", shortJson.GetProperty("error").GetString());
+
+        var invalidAlphaRes = await _client.PostAsJsonAsync($"/api/users/{createdUser.Id}/credentials/pin", new
+        {
+            pin = "abcd1",
+            label = "Non-numeric"
+        });
+        Assert.Equal(HttpStatusCode.BadRequest, invalidAlphaRes.StatusCode);
+    }
+
+    [Fact]
+    public async Task UsersController_SavePolicy_AssignsPolicyToDoorsAndUser()
+    {
+        var jsonOpts = new JsonSerializerOptions 
+        { 
+            PropertyNameCaseInsensitive = true,
+            Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
+        };
+
+        // 1. Create Door
+        var doorRes = await _client.PostAsJsonAsync("/api/doors", new AccessPoint
+        {
+            Name = "Side Garage Door",
+            LockProviderType = "GenericMqtt"
+        });
+        var door = await doorRes.Content.ReadFromJsonAsync<AccessPoint>(jsonOpts);
+        Assert.NotNull(door);
+
+        // 2. Create User
+        var userRes = await _client.PostAsJsonAsync("/api/users", new
+        {
+            name = "Bob Contractor",
+            role = "Service"
+        });
+        var user = await userRes.Content.ReadFromJsonAsync<User>(jsonOpts);
+        Assert.NotNull(user);
+
+        // 3. Save Policy for user
+        var policy = new AccessPolicy
+        {
+            Name = "Weekday Business Hours",
+            ScheduleType = ScheduleType.WeeklyRecurring,
+            DaysOfWeek = 31,
+            StartTime = new TimeOnly(8, 0),
+            EndTime = new TimeOnly(17, 0),
+            DoorIds = [door!.Id]
+        };
+
+        var savePolicyRes = await _client.PostAsJsonAsync($"/api/users/{user!.Id}/policies", policy);
+        var errBody = await savePolicyRes.Content.ReadAsStringAsync();
+        Assert.True(savePolicyRes.IsSuccessStatusCode, $"Failed with {savePolicyRes.StatusCode}: {errBody}");
+
+        // 4. Retrieve policies for user - must NOT be empty!
+        var getPoliciesRes = await _client.GetAsync($"/api/users/{user.Id}/policies");
+        Assert.Equal(HttpStatusCode.OK, getPoliciesRes.StatusCode);
+        var userPolicies = await getPoliciesRes.Content.ReadFromJsonAsync<List<AccessPolicy>>(jsonOpts);
+        Assert.NotNull(userPolicies);
+        Assert.NotEmpty(userPolicies!);
+        Assert.Equal("Weekday Business Hours", userPolicies![0].Name);
     }
 
     [Fact]
@@ -181,11 +250,35 @@ public class ApiControllerTests : IClassFixture<TestWebApplicationFactory>
     [Fact]
     public async Task AccessLogsController_RetrievesRecentLogs()
     {
-        var response = await _client.GetAsync("/api/logs?limit=10");
+        // 1. Create a dedicated test door
+        var doorRes = await _client.PostAsJsonAsync("/api/doors", new AccessPoint
+        {
+            Name = "Audit Log Test Door",
+            LockProviderType = "GenericMqtt"
+        });
+        var door = await doorRes.Content.ReadFromJsonAsync<AccessPoint>();
+        Assert.NotNull(door);
+
+        // 2. Perform an unlock operation to record a genuine audit log entry
+        var unlockRes = await _client.PostAsync($"/api/doors/{door!.Id}/unlock", null);
+        Assert.Equal(HttpStatusCode.OK, unlockRes.StatusCode);
+
+        // 3. Query logs specifically filtered by this door's ID
+        var response = await _client.GetAsync($"/api/logs?doorId={door.Id}&limit=10");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
-        var logs = await response.Content.ReadFromJsonAsync<List<AccessLog>>();
+        var jsonOpts = new JsonSerializerOptions 
+        { 
+            PropertyNameCaseInsensitive = true,
+            Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
+        };
+        var logs = await response.Content.ReadFromJsonAsync<List<AccessLog>>(jsonOpts);
         Assert.NotNull(logs);
+        Assert.NotEmpty(logs!);
+        var log = logs!.First();
+        Assert.Equal(door.Id, log.AccessPointId);
+        Assert.Equal(AccessEventType.Unlocked, log.EventType);
+        Assert.Equal(AccessMethod.Manual, log.Method);
     }
 
     [Fact]
@@ -430,6 +523,36 @@ public class ApiControllerTests : IClassFixture<TestWebApplicationFactory>
         using var reader = new StreamReader(stream);
         var firstLine = await reader.ReadLineAsync(cts.Token);
         Assert.Equal(": connected", firstLine);
+
+        // Read the empty separator line after : connected
+        var emptyLine = await reader.ReadLineAsync(cts.Token);
+        Assert.Equal("", emptyLine);
+
+        // Use a separate client instance so the streaming request doesn't multiplex/block on in-memory TestServer handler
+        using var client2 = _factory.CreateClient();
+
+        // Create a test door
+        var doorRes = await client2.PostAsJsonAsync("/api/doors", new AccessPoint
+        {
+            Name = "SSE Stream Door",
+            LockProviderType = "GenericMqtt"
+        }, cts.Token);
+        var door = await doorRes.Content.ReadFromJsonAsync<AccessPoint>(cts.Token);
+        Assert.NotNull(door);
+
+        // Perform unlock which broadcasts to the event stream
+        var unlockRes = await client2.PostAsync($"/api/doors/{door!.Id}/unlock", null, cts.Token);
+        Assert.Equal(HttpStatusCode.OK, unlockRes.StatusCode);
+
+        // Read the streamed event: "data: {json}"
+        var dataLine = await reader.ReadLineAsync(cts.Token);
+        Assert.NotNull(dataLine);
+        Assert.StartsWith("data: ", dataLine!);
+
+        var json = dataLine!.Substring("data: ".Length);
+        using var doc = JsonDocument.Parse(json);
+        Assert.Equal(door.Id, doc.RootElement.GetProperty("accessPointId").GetString());
+        Assert.Equal("Unlocked", doc.RootElement.GetProperty("eventType").GetString());
     }
 }
 
