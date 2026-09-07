@@ -36,7 +36,7 @@
   - `GET /api/discovery/sensors` returning `DiscoveredContactSensor[]`
   - `GET /api/discovery/sniff?since={timestamp}` returning `SnifferResult`
 
-- [ ] **Step 1: Write the failing tests for strict metric rejection and sniffer buffer**
+- [x] **Step 1: Write the failing tests for strict metric rejection and sniffer buffer**
 
 Create `tests/AccessControl.Tests.Harness/Services/MqttTopicDiscoveryTests.cs`:
 ```csharp
@@ -91,12 +91,12 @@ public class MqttTopicDiscoveryTests
 }
 ```
 
-- [ ] **Step 2: Run test to verify failure**
+- [x] **Step 2: Run test to verify failure**
 
 Run: `dotnet test tests/AccessControl.Tests.Harness/AccessControl.Tests.Harness.csproj --filter "MqttTopicDiscoveryTests"`
 Expected: FAIL with compilation error (methods `GetDiscoveredContactSensors` and `SniffActivity` do not exist).
 
-- [ ] **Step 3: Implement strict filtering, friendly name resolution, and sniffer in `MqttTopicDiscoveryService.cs`**
+- [x] **Step 3: Implement strict filtering, friendly name resolution, and sniffer in `MqttTopicDiscoveryService.cs`**
 
 Modify `src/AccessControl.Engine/Services/MqttTopicDiscoveryService.cs`:
 Add data contracts:
@@ -133,7 +133,7 @@ Implement in `MqttTopicDiscoveryService`:
 - Maintain a thread-safe `ConcurrentQueue<SnifferEvent>` with a max capacity of 50 items.
 - Expose `GetDiscoveredContactSensors()` and `SniffActivity(DateTimeOffset since)`.
 
-- [ ] **Step 4: Expose endpoints in `DiscoveryController.cs`**
+- [x] **Step 4: Expose endpoints in `DiscoveryController.cs`**
 
 Modify `src/AccessControl.Web/Controllers/DiscoveryController.cs`:
 ```csharp
@@ -153,12 +153,12 @@ public IActionResult SniffActivity([FromQuery] DateTimeOffset? since)
 }
 ```
 
-- [ ] **Step 5: Run tests to verify they pass**
+- [x] **Step 5: Run tests to verify they pass**
 
 Run: `dotnet test tests/AccessControl.Tests.Harness/AccessControl.Tests.Harness.csproj --filter "MqttTopicDiscoveryTests"`
 Expected: PASS (both tests green).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 Run:
 ```bash
@@ -181,7 +181,7 @@ Run:
   - `apiClient.discovery.getSensors(): Promise<DiscoveredContactSensor[]>`
   - `apiClient.discovery.sniff(since: string): Promise<SnifferResult>`
 
-- [ ] **Step 1: Write failing test in `apiClient.test.ts`**
+- [x] **Step 1: Write failing test in `apiClient.test.ts`**
 
 In `src/AccessControl.UI/src/api/apiClient.test.ts`:
 ```typescript
@@ -228,12 +228,12 @@ it('discovery.sniff calls sniff endpoint with since timestamp', async () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify failure**
+- [x] **Step 2: Run test to verify failure**
 
 Run: `cd src/AccessControl.UI && npm test -- src/api/apiClient.test.ts`
 Expected: FAIL (`getSensors` and `sniff` are not functions).
 
-- [ ] **Step 3: Update `types/index.ts` and `apiClient.ts`**
+- [x] **Step 3: Update `types/index.ts` and `apiClient.ts`**
 
 In `src/AccessControl.UI/src/types/index.ts`, add:
 ```typescript
@@ -275,12 +275,12 @@ In `src/AccessControl.UI/src/api/apiClient.ts`, add to `discovery`:
   },
 ```
 
-- [ ] **Step 4: Run test to verify pass**
+- [x] **Step 4: Run test to verify pass**
 
 Run: `cd src/AccessControl.UI && npm test -- src/api/apiClient.test.ts`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 Run:
 ```bash
@@ -305,7 +305,7 @@ Run:
   - Searchable contact sensor dropdown with live sniffer bar.
   - Submits valid `Partial<AccessPoint>` payload on save.
 
-- [ ] **Step 1: Write failing tests in `DoorSetupWizard.test.tsx`**
+- [x] **Step 1: Write failing tests in `DoorSetupWizard.test.tsx`**
 
 Test:
 1. `Direct Z-Wave JS mode renders node cards and hides all MQTT input fields`:
@@ -318,12 +318,12 @@ Test:
    - Asserts no buttons with raw topics exist.
 4. `Clicking Listen for Activity enters listening state and updates selection when event detected`.
 
-- [ ] **Step 2: Run test to verify failure**
+- [x] **Step 2: Run test to verify failure**
 
 Run: `cd src/AccessControl.UI && npm test -- src/components/doors/DoorSetupWizard.test.tsx`
 Expected: FAIL.
 
-- [ ] **Step 3: Implement progressive disclosure UI in `DoorSetupWizard.tsx`**
+- [x] **Step 3: Implement progressive disclosure UI in `DoorSetupWizard.tsx`**
 
 1. Replace provider mixing with segmented control:
    - `lockHardwareType`: `'DirectZWave' | 'MqttLock'`.
@@ -345,17 +345,17 @@ Expected: FAIL.
 4. Clean auto-lock drawer:
    - Sliders for Day (seconds) and Night (seconds).
 
-- [ ] **Step 4: Run tests to verify pass & zero lint warnings**
+- [x] **Step 4: Run tests to verify pass & zero lint warnings**
 
 Run: `cd src/AccessControl.UI && npm test -- src/components/doors/DoorSetupWizard.test.tsx && npm run lint`
 Expected: PASS and 0 warnings.
 
-- [ ] **Step 5: Build UI bundle into wwwroot**
+- [x] **Step 5: Build UI bundle into wwwroot**
 
 Run: `cd src/AccessControl.UI && npm run build`
 Expected: Succeeded.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 Run:
 ```bash
@@ -376,7 +376,7 @@ Run:
   - Verified backend integration test verifying real SQLite door persistence with progressive disclosure payload.
   - Updated Playwright Flow 3 executing the new wizard layout, selecting Node 39, verifying zero MQTT fields, selecting a friendly contact sensor, and publishing screenshot to the Agent Preview Hub.
 
-- [ ] **Step 1: Add SQLite persistence test in `AccessControl.Tests.Harness`**
+- [x] **Step 1: Add SQLite persistence test in `AccessControl.Tests.Harness`**
 
 Create `tests/AccessControl.Tests.Harness/Api/AccessPointCreationTests.cs`:
 - Simulates creating a door via `POST /api/access-points` with:
@@ -387,12 +387,12 @@ Create `tests/AccessControl.Tests.Harness/Api/AccessPointCreationTests.cs`:
 - Queries SQLite directly via Dapper.
 - Asserts door record exists with correct properties, auto-lock settings, and foreign keys.
 
-- [ ] **Step 2: Run backend integration tests**
+- [x] **Step 2: Run backend integration tests**
 
 Run: `dotnet test tests/AccessControl.Tests.Harness/AccessControl.Tests.Harness.csproj`
 Expected: PASS.
 
-- [ ] **Step 3: Update Playwright Flow 3 in `harness/specs/flows.spec.ts`**
+- [x] **Step 3: Update Playwright Flow 3 in `harness/specs/flows.spec.ts`**
 
 Update Flow 3:
 - Opens Add Door modal.
@@ -404,12 +404,12 @@ Update Flow 3:
 - Captures screenshot: `harness/output/03-door-setup-wizard.png`.
 - Closes dialog.
 
-- [ ] **Step 4: Run full flow harness and publish to Agent Preview Hub**
+- [x] **Step 4: Run full flow harness and publish to Agent Preview Hub**
 
 Run: `cd src/AccessControl.UI && npm run harness`
 Expected: All 5 flows pass, screenshot updated, report published to `https://preview.wileyriley.com/accesscontrol-harness/`.
 
-- [ ] **Step 5: Commit & push**
+- [x] **Step 5: Commit & push**
 
 Run:
 ```bash
