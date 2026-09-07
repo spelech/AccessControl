@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { getBasePath, buildUrl, apiClient } from './apiClient';
+import type { DiscoveredContactSensor, SnifferResult } from '../types';
 
 describe('apiClient and Ingress base path resolution', () => {
   const originalWindow = global.window;
@@ -136,6 +137,54 @@ describe('apiClient and Ingress base path resolution', () => {
       method: 'POST',
       body: JSON.stringify({ transportType: 'WebSocket', endpointUrl: 'ws://10.0.0.10:8106' }),
     }));
+  });
+
+  it('discovery.getSensors fetches strictly filtered contact sensors', async () => {
+    const mockSensors: DiscoveredContactSensor[] = [
+      {
+        topic: 'zigbee2mqtt/front_door_contact',
+        deviceName: 'Front Door Contact',
+        integration: 'Zigbee2MQTT',
+        model: 'Aqara MCCGQ11LM',
+        currentState: 'closed',
+        lastSeen: '2026-09-07T12:00:00Z',
+      },
+    ];
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => mockSensors,
+    });
+
+    const result = await apiClient.discovery.getSensors();
+    expect(result).toEqual(mockSensors);
+    expect(global.fetch).toHaveBeenCalledWith('/api/discovery/sensors', expect.any(Object));
+  });
+
+  it('discovery.sniff calls sniff endpoint with since timestamp', async () => {
+    const mockSnifferResult: SnifferResult = {
+      detected: true,
+      event: {
+        topic: 'zigbee2mqtt/front_door_contact',
+        deviceName: 'Front Door Contact',
+        model: 'Aqara MCCGQ11LM',
+        state: 'OPEN',
+        timestamp: '2026-09-07T12:05:00Z',
+      },
+    };
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => mockSnifferResult,
+    });
+
+    const result = await apiClient.discovery.sniff('2026-09-07T12:04:50Z');
+    expect(result.detected).toBe(true);
+    expect(result.event?.state).toBe('OPEN');
+    expect(global.fetch).toHaveBeenCalledWith(
+      '/api/discovery/sniff?since=2026-09-07T12%3A04%3A50Z',
+      expect.any(Object)
+    );
   });
 });
 

@@ -132,3 +132,26 @@ export interface TestConnectionResult {
   message: string;
 }
 
+export interface DiscoveredContactSensor {
+  topic: string;
+  deviceName: string;
+  integration: string;
+  model: string;
+  currentState: string;
+  lastSeen: string;
+}
+
+export interface SnifferEvent {
+  topic: string;
+  deviceName: string;
+  model: string;
+  state: string;
+  timestamp: string;
+}
+
+export interface SnifferResult {
+  detected: boolean;
+  event?: SnifferEvent;
+}
+
+

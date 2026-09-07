@@ -9,6 +9,8 @@ import type {
   SettingsResponse,
   TestConnectionRequest,
   TestConnectionResult,
+  DiscoveredContactSensor,
+  SnifferResult,
 } from '../types';
 
 declare global {
@@ -166,6 +168,12 @@ export const apiClient = {
   discovery: {
     getTopics: async (): Promise<DiscoveredTopic[]> => {
       return request<DiscoveredTopic[]>('/api/discovery');
+    },
+    getSensors: async (): Promise<DiscoveredContactSensor[]> => {
+      return request<DiscoveredContactSensor[]>('/api/discovery/sensors');
+    },
+    sniff: async (sinceIso: string): Promise<SnifferResult> => {
+      return request<SnifferResult>(`/api/discovery/sniff?since=${encodeURIComponent(sinceIso)}`);
     },
   },
 
