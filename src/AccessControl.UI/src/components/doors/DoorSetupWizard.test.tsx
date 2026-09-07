@@ -3,14 +3,37 @@ import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/re
 import { DoorSetupWizard } from './DoorSetupWizard';
 import { apiClient } from '../../api/apiClient';
 import { useSettingsStore, DEFAULT_SETTINGS } from '../../stores/useSettingsStore';
+import type { DiscoveredContactSensor, SnifferResult } from '../../types';
 
 describe('DoorSetupWizard component', () => {
+  const mockSensors: DiscoveredContactSensor[] = [
+    {
+      topic: 'zigbee2mqtt/front_door_contact',
+      deviceName: 'Front Door Contact',
+      integration: 'Zigbee2MQTT',
+      model: 'Aqara MCCGQ11LM',
+      currentState: 'Closed',
+      lastSeen: '2026-09-07T12:00:00Z',
+    },
+    {
+      topic: 'homeassistant/binary_sensor/patio_door/state',
+      deviceName: 'Patio Door Sensor',
+      integration: 'Home Assistant',
+      model: 'Ring Contact Sensor v2',
+      currentState: 'Open',
+      lastSeen: '2026-09-07T12:01:00Z',
+    },
+  ];
+
   beforeEach(() => {
     vi.restoreAllMocks();
     useSettingsStore.setState({
-      settings: { ...DEFAULT_SETTINGS },
+      settings: { ...DEFAULT_SETTINGS, zWaveTransportType: 'WebSocket' },
       transports: [],
-      detectedNodes: [],
+      detectedNodes: [
+        { nodeId: 39, name: 'Front Door Lock', deviceType: 'lock', model: 'Allegion BE469ZP' },
+        { nodeId: 40, name: 'Laundry Room Keypad', deviceType: 'keypad', model: 'Ring 4AK1SZ' },
+      ],
       lastTestResult: null,
       isLoading: false,
       isSaving: false,
@@ -18,10 +41,14 @@ describe('DoorSetupWizard component', () => {
       error: null,
       saveSuccessMessage: null,
     });
+
     vi.spyOn(apiClient.settings, 'get').mockResolvedValue({
-      settings: { ...DEFAULT_SETTINGS },
+      settings: { ...DEFAULT_SETTINGS, zWaveTransportType: 'WebSocket' },
       transports: [],
     });
+
+    vi.spyOn(apiClient.discovery, 'getSensors').mockResolvedValue(mockSensors);
+    vi.spyOn(apiClient.discovery, 'sniff').mockResolvedValue({ detected: false });
   });
 
   afterEach(() => {
@@ -36,97 +63,135 @@ describe('DoorSetupWizard component', () => {
     expect(container.firstChild).toBeNull();
   });
 
-  it('renders modal with default topics and submits door creation', async () => {
-    vi.spyOn(apiClient.discovery, 'getTopics').mockResolvedValue([
-      { topic: 'zwave/front_door', deviceType: 'lock', description: 'Front Lock' },
-    ]);
+  it('Direct Z-Wave JS mode renders node cards and completely omits any MQTT topic inputs from the DOM', async () => {
+    render(<DoorSetupWizard isOpen={true} onClose={vi.fn()} onSave={vi.fn()} />);
 
-    const onSave = vi.fn().mockResolvedValue(undefined);
-    const onClose = vi.fn();
+    // Node 39 lock card should be visible
+    expect(screen.getByText(/Node 39: Front Door Lock/i)).toBeDefined();
+    expect(screen.getByText(/Allegion BE469ZP/i)).toBeDefined();
 
-    render(
-      <DoorSetupWizard isOpen={true} onClose={onClose} onSave={onSave} />
-    );
-
-    expect(screen.getByText(/1-Click Door Setup Wizard/i)).toBeDefined();
-
-    // Enter name
-    const nameInput = screen.getByPlaceholderText(/e\.g\. Front Door/i);
-    fireEvent.change(nameInput, { target: { value: 'Back Patio Door' } });
-
-    // Click submit
-    const submitBtn = screen.getByRole('button', { name: /Create Access Point/i });
-    fireEvent.click(submitBtn);
-
-    await waitFor(() => {
-      expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
-        name: 'Back Patio Door',
-        lockProviderType: 'AugustZWave',
-        autoLockEnabled: true,
-      }));
-      expect(onClose).toHaveBeenCalled();
-    });
+    // Verify there are NO MQTT topic inputs for the lock in Direct Z-Wave mode
+    expect(screen.queryByPlaceholderText(/zwave\/front_door/i)).toBeNull();
+    expect(screen.queryByText(/Provider Type/i)).toBeNull();
   });
 
-  it('allows picking detected Z-Wave nodes in WebSocket mode and submits correctly', async () => {
-    useSettingsStore.setState({
-      settings: {
-        ...DEFAULT_SETTINGS,
-        zWaveTransportType: 'WebSocket',
-      },
-      detectedNodes: [
-        { nodeId: 39, name: 'Front Door Lock', deviceType: 'lock', model: 'Allegion BE469ZP' },
-        { nodeId: 40, name: 'Laundry Room Keypad', deviceType: 'keypad', model: 'Ring 4AK1SZ' },
-      ],
-    });
+  it('Selecting integrated lock node card defaults to Built-In Lock Keypad', async () => {
+    render(<DoorSetupWizard isOpen={true} onClose={vi.fn()} onSave={vi.fn()} />);
 
-    vi.spyOn(apiClient.discovery, 'getTopics').mockResolvedValue([]);
+    // Built-In Keypad should be active by default with explicit explanatory note
+    expect(
+      screen.getByText(/Uses Node 39 hardware keypad\. PIN slots sync directly\./i)
+    ).toBeDefined();
 
-    const onSave = vi.fn().mockResolvedValue(undefined);
-    const onClose = vi.fn();
+    // Clicking Node 39 card updates name if empty
+    const nodeCard = screen.getByText(/Node 39: Front Door Lock/i);
+    fireEvent.click(nodeCard);
 
-    render(
-      <DoorSetupWizard isOpen={true} onClose={onClose} onSave={onSave} />
-    );
-
-    // Pick detected lock (Node 39)
-    const lockBtn = screen.getByRole('button', { name: /Node 39: Front Door Lock/i });
-    expect(lockBtn).toBeDefined();
-    fireEvent.click(lockBtn);
-
-    // Pick detected keypad (Node 40)
-    const keypadBtn = screen.getByRole('button', { name: /Node 40: Laundry Room Keypad/i });
-    expect(keypadBtn).toBeDefined();
-    fireEvent.click(keypadBtn);
-
-    // Verify name was auto-populated from the lock
     const nameInput = screen.getByPlaceholderText(/e\.g\. Front Door/i) as HTMLInputElement;
     expect(nameInput.value).toBe('Front Door Lock');
+  });
 
-    // Submit
+  it('allows switching between Direct Z-Wave and MQTT Lock modes', async () => {
+    render(<DoorSetupWizard isOpen={true} onClose={vi.fn()} onSave={vi.fn()} />);
+
+    // Switch to MQTT Lock
+    const mqttBtn = screen.getByRole('button', { name: /MQTT Lock/i });
+    fireEvent.click(mqttBtn);
+
+    // Now MQTT inputs should be present
+    expect(screen.getByPlaceholderText(/zwave\/front_door/i)).toBeDefined();
+    expect(screen.getByLabelText(/Provider Type/i)).toBeDefined();
+
+    // Switch back to Direct Z-Wave
+    const directBtn = screen.getByRole('button', { name: /Direct Z-Wave JS/i });
+    fireEvent.click(directBtn);
+
+    expect(screen.queryByPlaceholderText(/zwave\/front_door/i)).toBeNull();
+  });
+
+  it('MqttContact renders friendly sensor options and no raw button swarms', async () => {
+    render(<DoorSetupWizard isOpen={true} onClose={vi.fn()} onSave={vi.fn()} />);
+
+    await waitFor(() => {
+      expect(apiClient.discovery.getSensors).toHaveBeenCalled();
+    });
+
+    // Check that dropdown contains formatted friendly name options
+    const select = screen.getByLabelText(/Discovered Contact Sensor/i) as HTMLSelectElement;
+    expect(select).toBeDefined();
+
+    const options = Array.from(select.options).map((o) => o.text);
+    expect(options).toContain(
+      'Front Door Contact — Aqara MCCGQ11LM (Zigbee2MQTT) [Closed]'
+    );
+    expect(options).toContain(
+      'Patio Door Sensor — Ring Contact Sensor v2 (Home Assistant) [Open]'
+    );
+
+    // Ensure raw button cloud is NOT rendered
+    expect(
+      screen.queryByRole('button', { name: 'zigbee2mqtt/front_door_contact' })
+    ).toBeNull();
+  });
+
+  it('Clicking Listen for Activity triggers sniffing and selects the detected topic on event arrival', async () => {
+    const snifferResult: SnifferResult = {
+      detected: true,
+      event: {
+        topic: 'zigbee2mqtt/patio_door_contact',
+        deviceName: 'Patio Door Sensor',
+        model: 'Aqara MCCGQ11LM',
+        state: 'OPEN',
+        timestamp: '2026-09-07T12:05:00Z',
+      },
+    };
+
+    const sniffSpy = vi.spyOn(apiClient.discovery, 'sniff').mockResolvedValue(snifferResult);
+
+    render(<DoorSetupWizard isOpen={true} onClose={vi.fn()} onSave={vi.fn()} />);
+
+    const listenBtn = screen.getByRole('button', { name: /⚡ Listen for Activity/i });
+    fireEvent.click(listenBtn);
+
+    await waitFor(() => {
+      expect(sniffSpy).toHaveBeenCalled();
+      expect(screen.getByText(/Detected Activity on Patio Door Sensor \(OPEN\)/i)).toBeDefined();
+    });
+  });
+
+  it('Submits clean AccessPoint payload in Direct Z-Wave mode with Built-In Keypad', async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    const onClose = vi.fn();
+
+    render(<DoorSetupWizard isOpen={true} onClose={onClose} onSave={onSave} />);
+
+    // Enter door name
+    const nameInput = screen.getByPlaceholderText(/e\.g\. Front Door/i);
+    fireEvent.change(nameInput, { target: { value: 'Main Front Entry' } });
+
+    // Submit form
     const submitBtn = screen.getByRole('button', { name: /Create Access Point/i });
     fireEvent.click(submitBtn);
 
     await waitFor(() => {
-      expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
-        name: 'Front Door Lock',
-        lockProviderType: 'ZWaveWebSocket',
-        lockConfigJson: JSON.stringify({ topic: 'node_39', nodeId: 39 }),
-        keypadProviderType: 'ZWaveKeypad',
-        keypadConfigJson: JSON.stringify({ topic: 'node_40', nodeId: 40 }),
-      }));
+      expect(onSave).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: 'Main Front Entry',
+          lockProviderType: 'ZWaveWebSocket',
+          lockConfigJson: JSON.stringify({ topic: 'node_39', nodeId: 39 }),
+          keypadProviderType: 'BuiltInKeypad',
+          keypadConfigJson: JSON.stringify({ nodeId: 39, type: 'built_in' }),
+          autoLockEnabled: true,
+          autoLockDaySeconds: 300,
+          autoLockNightSeconds: 60,
+          retryOnFailure: true,
+        })
+      );
       expect(onClose).toHaveBeenCalled();
     });
   });
 
-  it('pre-populates existing door with Z-Wave node ID from config JSON', async () => {
-    useSettingsStore.setState({
-      settings: {
-        ...DEFAULT_SETTINGS,
-        zWaveTransportType: 'WebSocket',
-      },
-    });
-
+  it('Pre-populates existing door with Z-Wave node ID from config JSON and saves update', async () => {
     const initialDoor = {
       id: 'door-123',
       name: 'Garage Side Door',
@@ -134,18 +199,23 @@ describe('DoorSetupWizard component', () => {
       lockConfigJson: JSON.stringify({ topic: 'node_39', nodeId: 39 }),
       keypadProviderType: 'ZWaveKeypad',
       keypadConfigJson: JSON.stringify({ topic: 'node_40', nodeId: 40 }),
+      doorSensorProviderType: 'GenericMqttContact',
+      doorSensorConfigJson: JSON.stringify({ topic: 'zigbee2mqtt/garage_contact' }),
       autoLockEnabled: true,
       autoLockDaySeconds: 180,
       autoLockNightSeconds: 45,
       retryOnFailure: true,
     };
 
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    const onClose = vi.fn();
+
     render(
       <DoorSetupWizard
         isOpen={true}
         initialData={initialDoor}
-        onClose={vi.fn()}
-        onSave={vi.fn()}
+        onClose={onClose}
+        onSave={onSave}
       />
     );
 
@@ -154,6 +224,19 @@ describe('DoorSetupWizard component', () => {
     expect(nameInput.value).toBe('Garage Side Door');
 
     const updateBtn = screen.getByRole('button', { name: /Update Access Point/i });
-    expect(updateBtn).toBeDefined();
+    fireEvent.click(updateBtn);
+
+    await waitFor(() => {
+      expect(onSave).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: 'door-123',
+          name: 'Garage Side Door',
+          lockProviderType: 'ZWaveWebSocket',
+          autoLockDaySeconds: 180,
+          autoLockNightSeconds: 45,
+        })
+      );
+      expect(onClose).toHaveBeenCalled();
+    });
   });
 });
