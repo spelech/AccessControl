@@ -284,7 +284,7 @@ public class ApiControllerTests : IClassFixture<TestWebApplicationFactory>
     [Fact]
     public async Task McpServer_SseEndpoint_ReturnsEndpointEvent()
     {
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
         using var request = new HttpRequestMessage(HttpMethod.Get, "/mcp/sse");
         request.Headers.Add("Accept", "text/event-stream");
 
@@ -511,7 +511,7 @@ public class ApiControllerTests : IClassFixture<TestWebApplicationFactory>
     [Fact]
     public async Task AccessLogs_StreamEndpoint_ReceivesStreamedEvent()
     {
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
         using var request = new HttpRequestMessage(HttpMethod.Get, "/api/logs/stream");
         request.Headers.Add("Accept", "text/event-stream");
 

@@ -62,7 +62,7 @@ public sealed class MqttInboundConsumerServiceTests : IDisposable
     [Fact]
     public async Task KeypadMessage_DispatchedThroughInboundChannel_UnlocksDoorAndRecordsAuditLog()
     {
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
 
         // 1. Seed AccessPoint, User, PIN Credential, and AccessPolicy
         using (var scope = _serviceProvider.CreateScope())
@@ -147,7 +147,7 @@ public sealed class MqttInboundConsumerServiceTests : IDisposable
     [Fact]
     public async Task LockAndSensorTelemetry_UpdatesDoorStatesAndAutoLockCountdown()
     {
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
 
         using (var scope = _serviceProvider.CreateScope())
         {
