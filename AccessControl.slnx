@@ -1,0 +1,14 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/AccessControl.Core/AccessControl.Core.csproj" />
+    <Project Path="src/AccessControl.Data/AccessControl.Data.csproj" />
+    <Project Path="src/AccessControl.Engine/AccessControl.Engine.csproj" />
+    <Project Path="src/AccessControl.Mcp/AccessControl.Mcp.csproj" />
+    <Project Path="src/AccessControl.Web/AccessControl.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/AccessControl.Tests.Harness/AccessControl.Tests.Harness.csproj" />
+    <Project Path="tests/AccessControl.Tests.Simulator/AccessControl.Tests.Simulator.csproj" />
+    <Project Path="tests/AccessControl.Tests.Unit/AccessControl.Tests.Unit.csproj" />
+  </Folder>
+</Solution>

@@ -1,15 +1,15 @@
-# CodeMaster 🔐
+# AccessControl 🔐
 
-[![CI Quality Gates](https://github.com/spelech/CodeMaster/actions/workflows/ci.yml/badge.svg)](https://github.com/spelech/CodeMaster/actions/workflows/ci.yml)
-[![Docker Image](https://img.shields.io/badge/ghcr.io-spelech%2Fcodemaster-blue?logo=docker)](https://github.com/spelech/CodeMaster/pkgs/container/codemaster)
-[![Version](https://img.shields.io/badge/version-1.0.0-emerald.svg)](https://github.com/spelech/CodeMaster/releases)
+[![CI Quality Gates](https://github.com/spelech/AccessControl/actions/workflows/ci.yml/badge.svg)](https://github.com/spelech/AccessControl/actions/workflows/ci.yml)
+[![Docker Image](https://img.shields.io/badge/ghcr.io-spelech%2Faccesscontrol-blue?logo=docker)](https://github.com/spelech/AccessControl/pkgs/container/accesscontrol)
+[![Version](https://img.shields.io/badge/version-1.0.0-emerald.svg)](https://github.com/spelech/AccessControl/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![.NET 10](https://img.shields.io/badge/.NET-10.0-512BD4?logo=dotnet)](https://dotnet.microsoft.com/)
 [![React 19](https://img.shields.io/badge/React-19.0-61DAFB?logo=react)](https://react.dev/)
 [![Home Assistant Ingress](https://img.shields.io/badge/Hass.io-Ingress%20Ready-41BDF5?logo=homeassistant)](addon/DOCS.md)
-[![MCP Protocol 2026-07-28](https://img.shields.io/badge/MCP-2026--07--28-purple)](src/CodeMaster.Mcp/)
+[![MCP Protocol 2026-07-28](https://img.shields.io/badge/MCP-2026--07--28-purple)](src/AccessControl.Mcp/)
 
-**CodeMaster** is a high-performance, containerized access control and physical lock/keypad synchronization engine for smart homes and homelabs. Designed as an open-source, scalable replacement for Keymaster, it solves Home Assistant entity explosion by externalizing state reconciliation, PIN policy enforcement, and auto-lock logic into an independent engine that communicates over standard MQTT.
+**AccessControl** is a high-performance, containerized access control and physical lock/keypad synchronization engine for smart homes and homelabs. Designed as an open-source, scalable replacement for Keymaster, it solves Home Assistant entity explosion by externalizing state reconciliation, PIN policy enforcement, and auto-lock logic into an independent engine that communicates over standard MQTT.
 
 ---
 
@@ -25,7 +25,7 @@
 
 ---
 
-## 💡 Why CodeMaster?
+## 💡 Why AccessControl?
 
 ### The Keymaster Problem
 Traditional Home Assistant lock integrations (such as Keymaster) generate **49 to 50 distinct helper entities for every code slot configured**. For a home with 2 locks and 10 PIN slots, this introduces over **500 synthetic entities** (switches, inputs, sensors, automations) directly into the Home Assistant state machine. This entity bloat causes:
@@ -34,10 +34,10 @@ Traditional Home Assistant lock integrations (such as Keymaster) generate **49 t
 - Sluggish dashboard re-renders and synchronization race conditions.
 - Strict hardware coupling that fails completely when using stateless event keypads (like the **Ring Keypad v2**) separated from deadbolts (like the **August Smart Lock**).
 
-### The CodeMaster Solution (Frigate-Style Architecture)
-CodeMaster adopts the architecture proven by **Frigate NVR**: compute-intensive and event-heavy tasks execute within a dedicated, high-speed container, while Home Assistant receives clean, discoverable entities:
+### The AccessControl Solution (Frigate-Style Architecture)
+AccessControl adopts the architecture proven by **Frigate NVR**: compute-intensive and event-heavy tasks execute within a dedicated, high-speed container, while Home Assistant receives clean, discoverable entities:
 
-- **Zero Entity Bloat**: CodeMaster emits only **3 to 4 clean entities per door** via standard Home Assistant MQTT Discovery:
+- **Zero Entity Bloat**: AccessControl emits only **3 to 4 clean entities per door** via standard Home Assistant MQTT Discovery:
   - `lock.<door_id>` — Fast lock/unlock state & command
   - `binary_sensor.<door_id>_sensor` — Contact sensor mirror
   - `event.<door_id>_access` — Rich security access event stream (`keypad_unlock`, `manual_unlock`, `auto_lock`, `tamper`)
@@ -60,7 +60,7 @@ flowchart TD
         DoorSensor["Door Contact Sensor"] -->|mqtt| Mosquitto
     end
 
-    subgraph CodeMaster Core Engine
+    subgraph AccessControl Core Engine
         Mosquitto -->|Inbound Channel| MqttClient["MQTT Client Service"]
         MqttClient --> IngestChan["Channel&lt;MqttInboundMessage&gt;"]
         IngestChan --> PolicyEval["Access Policy Evaluator"]
@@ -96,9 +96,9 @@ Create a `docker-compose.yaml` file:
 
 ```yaml
 services:
-  codemaster:
-    image: ghcr.io/spelech/codemaster:latest
-    container_name: codemaster
+  accesscontrol:
+    image: ghcr.io/spelech/accesscontrol:latest
+    container_name: accesscontrol
     restart: unless-stopped
     ports:
       - "8150:8150"
@@ -106,8 +106,8 @@ services:
       - ASPNETCORE_ENVIRONMENT=Production
       - MQTT__HOST=10.0.0.10
       - MQTT__PORT=1883
-      - MQTT__CLIENTID=codemaster
-      - DATABASE__PATH=/app/data/codemaster.db
+      - MQTT__CLIENTID=accesscontrol
+      - DATABASE__PATH=/app/data/accesscontrol.db
     volumes:
       - ./data:/app/data
 ```
@@ -122,15 +122,15 @@ Access the dashboard at `http://localhost:8150`.
 
 ### Option B: Home Assistant Add-on (Ingress Ready)
 
-CodeMaster can be installed directly as a Home Assistant Add-on with native Ingress support (zero port forwarding required).
+AccessControl can be installed directly as a Home Assistant Add-on with native Ingress support (zero port forwarding required).
 
 1. In Home Assistant, navigate to **Settings > Add-ons > Add-on Store**.
 2. Click the three dots in the top right, select **Repositories**, and add:
    ```
-   https://github.com/spelech/CodeMaster
+   https://github.com/spelech/AccessControl
    ```
-3. Locate **CodeMaster**, click **Install**, and toggle **Show in sidebar**.
-4. Start the add-on and open the CodeMaster web UI directly inside Home Assistant!
+3. Locate **AccessControl**, click **Install**, and toggle **Show in sidebar**.
+4. Start the add-on and open the AccessControl web UI directly inside Home Assistant!
 
 *See the [Add-on Documentation](addon/DOCS.md) for full configuration details.*
 
@@ -139,15 +139,15 @@ CodeMaster can be installed directly as a Home Assistant Add-on with native Ingr
 ## 🔑 Key Features
 
 ### 1. Stateless Event Keypads & Slotted Locks
-- **Ring Keypad v2 Integration**: CodeMaster monitors `ring/<location>/alarm/command` and keypad topics. When a disarm code is entered on the keypad, CodeMaster evaluates the credential against active policies in SQLite and dispatches an unlock command to the associated deadbolt in $< 50\text{ ms}$.
-- **Hardware Slotted Deadbolts**: For locks supporting hardware slots (e.g., Schlage BE469, Yale Real Living), CodeMaster synchronizes active schedules into slots 1–30. Expired guest codes are automatically pruned from the lock's EEPROM.
+- **Ring Keypad v2 Integration**: AccessControl monitors `ring/<location>/alarm/command` and keypad topics. When a disarm code is entered on the keypad, AccessControl evaluates the credential against active policies in SQLite and dispatches an unlock command to the associated deadbolt in $< 50\text{ ms}$.
+- **Hardware Slotted Deadbolts**: For locks supporting hardware slots (e.g., Schlage BE469, Yale Real Living), AccessControl synchronizes active schedules into slots 1–30. Expired guest codes are automatically pruned from the lock's EEPROM.
 
 ### 2. Intelligent Auto-Lock State Machine
 - **Contact Sensor Awareness**: Auto-lock timers will never throw the deadbolt into the door frame.
 - **Paused While Open**: When a door unlocks and opens, the countdown pauses (`PausedDoorOpen`).
 - **Counting Down on Close**: The timer arms only once the contact sensor transitions to `Closed`. If reopened mid-countdown, the timer aborts immediately.
 - **Day / Night Timer Thresholds**: Configure distinct auto-lock delay intervals (e.g. 5 minutes during the day, 60 seconds at night).
-- **Auto-Jam Detection & Retry**: If the lock reports a jam, CodeMaster initiates an automated retry sequence before raising a high-priority alert.
+- **Auto-Jam Detection & Retry**: If the lock reports a jam, AccessControl initiates an automated retry sequence before raising a high-priority alert.
 
 ### 3. Visual Scheduling Engine
 Define flexible access rules with zero YAML:
@@ -160,16 +160,16 @@ Define flexible access rules with zero YAML:
 
 ## 🤖 Model Context Protocol (MCP) Server
 
-CodeMaster includes an integrated MCP server adhering strictly to the **2026-07-28 specification** (with automatic fallback to `2024-11-05`), available at `/mcp/sse`. AI coding agents (such as Google Antigravity, Claude, or MCG Router) can dynamically interact with access points:
+AccessControl includes an integrated MCP server adhering strictly to the **2026-07-28 specification** (with automatic fallback to `2024-11-05`), available at `/mcp/sse`. AI coding agents (such as Google Antigravity, Claude, or MCG Router) can dynamically interact with access points:
 
 | Tool Name | Parameters | Description |
 |---|---|---|
-| `codemaster__list_doors` | — | Returns all registered access points, lock capabilities, and current lock/contact states. |
-| `codemaster__unlock_door` | `door_id` | Remotely commands a deadbolt or strike to unlock. |
-| `codemaster__lock_door` | `door_id` | Remotely commands a deadbolt to lock. |
-| `codemaster__create_guest_pin` | `user_name`, `pin`, `door_id`, `valid_from`, `valid_until` | Creates a temporary guest user, encrypts/hashes their PIN, and provisions an active schedule. |
-| `codemaster__revoke_user` | `user_id` | Deactivates a user and triggers immediate hardware slot code clearing. |
-| `codemaster__get_access_logs` | `door_id` (optional), `limit` | Queries recent access events, filtering by lock, user, or access method. |
+| `accesscontrol__list_doors` | — | Returns all registered access points, lock capabilities, and current lock/contact states. |
+| `accesscontrol__unlock_door` | `door_id` | Remotely commands a deadbolt or strike to unlock. |
+| `accesscontrol__lock_door` | `door_id` | Remotely commands a deadbolt to lock. |
+| `accesscontrol__create_guest_pin` | `user_name`, `pin`, `door_id`, `valid_from`, `valid_until` | Creates a temporary guest user, encrypts/hashes their PIN, and provisions an active schedule. |
+| `accesscontrol__revoke_user` | `user_id` | Deactivates a user and triggers immediate hardware slot code clearing. |
+| `accesscontrol__get_access_logs` | `door_id` (optional), `limit` | Queries recent access events, filtering by lock, user, or access method. |
 
 ---
 
@@ -196,17 +196,17 @@ CodeMaster includes an integrated MCP server adhering strictly to the **2026-07-
 
 ## 🧪 Development & Quality Standards
 
-CodeMaster enforces Steven T. Pelech's **Agentic Engineering Toolbelt** standards with 100% automated test coverage and layout audits:
+AccessControl enforces Steven T. Pelech's **Agentic Engineering Toolbelt** standards with 100% automated test coverage and layout audits:
 
 ```bash
 # Build .NET solution
-dotnet build codemaster.slnx --configuration Release
+dotnet build AccessControl.slnx --configuration Release
 
 # Run .NET unit & closed-loop controls harness tests (78 tests)
-dotnet test codemaster.slnx --configuration Release
+dotnet test AccessControl.slnx --configuration Release
 
 # Run frontend unit tests & zero-warning ESLint audit
-cd src/CodeMaster.UI
+cd src/AccessControl.UI
 npm test
 npm run lint
 
@@ -216,7 +216,7 @@ npx playwright test
 # Verify release link integrity & SemVer synchronization
 python3 verify_release.py --ci --skip-tests
 
-# Live Docker integration stack (Mosquitto + Hardware Simulator + CodeMaster)
+# Live Docker integration stack (Mosquitto + Hardware Simulator + AccessControl)
 docker compose -f docker-compose.test.yaml up -d --build
 curl -f http://localhost:8155/health
 docker compose -f docker-compose.test.yaml down -v

@@ -1,8 +1,8 @@
-# Home Assistant Add-on: CodeMaster
+# Home Assistant Add-on: AccessControl
 
 **Universal Access Control & Lock/Keypad Synchronization Engine**
 
-CodeMaster is an open-source, general-purpose access control platform built on the Frigate architecture pattern. It provides centralized management for physical door locks, keypad credentials, access schedules, and audit trails across Z-Wave, Zigbee, Ring, Matter, and ESPHome.
+AccessControl is an open-source, general-purpose access control platform built on the Frigate architecture pattern. It provides centralized management for physical door locks, keypad credentials, access schedules, and audit trails across Z-Wave, Zigbee, Ring, Matter, and ESPHome.
 
 ## Features
 
@@ -19,8 +19,8 @@ CodeMaster is an open-source, general-purpose access control platform built on t
 
 1. In Home Assistant, navigate to **Settings** > **Add-ons** > **Add-on Store**.
 2. Click the three dots (top right) and select **Repositories**.
-3. Add the CodeMaster add-on repository URL.
-4. Locate **CodeMaster** in the store list and click **Install**.
+3. Add the AccessControl add-on repository URL.
+4. Locate **AccessControl** in the store list and click **Install**.
 5. Once installed, toggle **Show in sidebar** to enable one-click Ingress navigation.
 6. Click **Start** to run the add-on.
 
@@ -28,7 +28,7 @@ CodeMaster is an open-source, general-purpose access control platform built on t
 
 ## Configuration
 
-CodeMaster configuration is managed via the **Configuration** tab in the add-on panel or through the interactive Web UI.
+AccessControl configuration is managed via the **Configuration** tab in the add-on panel or through the interactive Web UI.
 
 ### Add-on Options
 
@@ -44,7 +44,7 @@ mqtt_port: 1883
 
 ## Web Dashboard & Ingress
 
-Click **CodeMaster** in your Home Assistant sidebar to open the web management interface.
+Click **AccessControl** in your Home Assistant sidebar to open the web management interface.
 
 From the dashboard you can:
 1. **Manage Doors**: Define access points, link physical locks (e.g. Z-Wave JS UI topics), and pair external keypads (e.g. Ring Keypad v2).
@@ -56,5 +56,5 @@ From the dashboard you can:
 
 ## Support & Contributing
 
-- **Documentation**: [CodeMaster Architecture & Design](https://github.com/spelech/codemaster)
+- **Documentation**: [AccessControl Architecture & Design](https://github.com/spelech/accesscontrol)
 - **Issue Tracker**: File bug reports and feature requests on GitHub.

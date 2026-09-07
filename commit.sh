@@ -10,8 +10,8 @@ if [ -z "$1" ]; then
 fi
 
 echo "🔍 Validating backend Release build..."
-if [ -f codemaster.slnx ] || compgen -G "*.sln*" > /dev/null; then
-    dotnet build codemaster.slnx --configuration Release
+if [ -f AccessControl.slnx ] || compgen -G "*.sln*" > /dev/null; then
+    dotnet build AccessControl.slnx --configuration Release
 fi
 
 echo "🔄 Running automated version bump..."

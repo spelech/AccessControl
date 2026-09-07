@@ -1,4 +1,4 @@
-ARG BUILD_FROM=ghcr.io/spelech/codemaster:latest
+ARG BUILD_FROM=ghcr.io/spelech/accesscontrol:latest
 FROM ${BUILD_FROM}
 
 ENV ASPNETCORE_URLS="http://+:8150"

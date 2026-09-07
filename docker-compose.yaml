@@ -1,19 +1,19 @@
 services:
-  codemaster:
+  accesscontrol:
     build:
       context: .
       dockerfile: Dockerfile
-    image: codemaster:latest
-    container_name: codemaster
+    image: accesscontrol:latest
+    container_name: accesscontrol
     restart: unless-stopped
     ports:
       - "8150:8150"
     environment:
       - ASPNETCORE_URLS=http://+:8150
-      - ConnectionStrings__DefaultConnection=Data Source=/app/data/codemaster.db
+      - ConnectionStrings__DefaultConnection=Data Source=/app/data/accesscontrol.db
       - Mqtt__Host=10.0.0.10
       - Mqtt__Port=8100
-      - Mqtt__ClientId=codemaster-prod
+      - Mqtt__ClientId=accesscontrol-prod
     volumes:
       - ./data:/app/data
     networks:
