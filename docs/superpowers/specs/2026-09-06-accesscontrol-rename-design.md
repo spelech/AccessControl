@@ -84,7 +84,7 @@ This specification outlines the complete, atomic rename of the codebase, .NET so
   - `codemaster__create_guest_pin` -> `accesscontrol__create_guest_pin`
   - `codemaster__revoke_user` -> `accesscontrol__revoke_user`
   - `codemaster__get_access_logs` -> `accesscontrol__get_access_logs`
-- Provide backward compatibility alias handling in MCP routing if a legacy `codemaster__*` tool is requested.
+- Zero fallbacks: all legacy aliases, database fallbacks, and legacy naming removed per owner directive.
 
 ### 3.4. Frontend UI Refactoring
 - Rename folder `src/CodeMaster.UI` -> `src/AccessControl.UI`.

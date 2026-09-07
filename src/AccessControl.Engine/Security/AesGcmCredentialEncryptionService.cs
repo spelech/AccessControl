@@ -59,7 +59,7 @@ public sealed class AesGcmCredentialEncryptionService : ICredentialEncryptionSer
         {
             // Deterministic default machine-local key fallback for local developer / dev-container environments
             _logger?.LogWarning("Security:EncryptionKey is not configured. Falling back to default system key. Configure a 32-byte key in production.");
-            _key = SHA256.HashData(Encoding.UTF8.GetBytes("CodeMaster-Default-AES256-GCM-Key-Salt-2026"));
+            _key = SHA256.HashData(Encoding.UTF8.GetBytes("AccessControl-Default-AES256-GCM-Key-Salt-2026"));
         }
     }
 

@@ -40,7 +40,7 @@ describe('useSettingsStore', () => {
         zWaveMqttPrefix: 'zwave',
         mqttHost: '10.0.0.10',
         mqttPort: 8100,
-        mqttUsername: 'codemaster',
+        mqttUsername: 'accesscontrol',
         mqttPassword: '',
         appriseUrl: 'discord://webhook',
       },
@@ -61,7 +61,7 @@ describe('useSettingsStore', () => {
 
     const state = useSettingsStore.getState();
     expect(state.isLoading).toBe(false);
-    expect(state.settings.mqttUsername).toBe('codemaster');
+    expect(state.settings.mqttUsername).toBe('accesscontrol');
     expect(state.settings.appriseUrl).toBe('discord://webhook');
     expect(state.transports).toHaveLength(1);
     expect(state.transports[0].transportId).toBe('zwave_ws');

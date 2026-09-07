@@ -14,15 +14,13 @@ import type {
 declare global {
   interface Window {
     __ACCESSCONTROL_BASE_PATH__?: string;
-    __CODEMASTER_BASE_PATH__?: string;
   }
 }
 
 export function getBasePath(): string {
   if (typeof window !== 'undefined') {
-    const basePath = window.__ACCESSCONTROL_BASE_PATH__ ?? window.__CODEMASTER_BASE_PATH__;
-    if (basePath) {
-      return basePath.replace(/\/+$/, '');
+    if (window.__ACCESSCONTROL_BASE_PATH__) {
+      return window.__ACCESSCONTROL_BASE_PATH__.replace(/\/+$/, '');
     }
     const meta = document.querySelector('meta[name="base-path"]');
     if (meta) {

@@ -6,7 +6,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 test.describe('Capture Documentation Screenshots', () => {
-  test('Capture all CodeMaster views', async ({ page }) => {
+  test('Capture all AccessControl views', async ({ page }) => {
     // Mock API routes with realistic homelab access control data
     await page.route('**/api/doors', async (route) => {
       if (route.request().method() === 'GET') {

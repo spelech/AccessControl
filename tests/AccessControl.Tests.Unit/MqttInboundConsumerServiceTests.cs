@@ -25,7 +25,7 @@ public sealed class MqttInboundConsumerServiceTests : IDisposable
 
     public MqttInboundConsumerServiceTests()
     {
-        _dbPath = Path.Combine(Path.GetTempPath(), $"codemaster_consumer_test_{Guid.NewGuid():N}.db");
+        _dbPath = Path.Combine(Path.GetTempPath(), $"accesscontrol_consumer_test_{Guid.NewGuid():N}.db");
         _connectionFactory = new SqliteConnectionFactory($"Data Source={_dbPath}");
 
         var seeder = new DatabaseSeederService(_connectionFactory, NullLogger<DatabaseSeederService>.Instance);
@@ -172,7 +172,7 @@ public sealed class MqttInboundConsumerServiceTests : IDisposable
 
         // 2. Process lock state unlocked message
         await _consumerService.ProcessMessageAsync(
-            new MqttInboundMessage("codemaster/patio_door/lock/state", "unlocked"),
+            new MqttInboundMessage("accesscontrol/patio_door/lock/state", "unlocked"),
             cts.Token);
 
         using (var scope = _serviceProvider.CreateScope())

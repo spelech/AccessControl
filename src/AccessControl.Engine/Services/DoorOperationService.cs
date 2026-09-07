@@ -273,8 +273,8 @@ public class DoorOperationService : IDoorOperationService
             return new ZWaveJsMqttLockProvider(target ?? door.Id, 0, _mqttClient);
         }
 
-        var cmdTopic = target ?? $"codemaster/{door.Id}/lock/set";
-        var stateTopic = target ?? $"codemaster/{door.Id}/lock/state";
+        var cmdTopic = target ?? $"accesscontrol/{door.Id}/lock/set";
+        var stateTopic = target ?? $"accesscontrol/{door.Id}/lock/state";
         return new GenericMqttLockProvider(cmdTopic, stateTopic, "LOCK", "UNLOCK", _mqttClient);
     }
 }

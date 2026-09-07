@@ -67,7 +67,7 @@ public class AppriseNotificationDispatcher : INotificationDispatcher
 
     public Task DispatchAccessEventAsync(AccessLog log, CancellationToken cancellationToken = default)
     {
-        var title = $"[CodeMaster] {log.EventType}: {log.UserName ?? "Unknown User"}";
+        var title = $"[AccessControl] {log.EventType}: {log.UserName ?? "Unknown User"}";
         var body = $"Access Point: {log.AccessPointId}\nEvent: {log.EventType}\nUser: {log.UserName ?? "Unknown"}\nMethod: {log.Method}\nTimestamp: {log.Timestamp:O}" +
                    (!string.IsNullOrEmpty(log.Details) ? $"\nDetails: {log.Details}" : "");
 

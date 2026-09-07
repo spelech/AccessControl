@@ -386,7 +386,7 @@ export const SettingsView: React.FC = () => {
               type="text"
               value={settings.mqttUsername}
               onChange={(e) => updateSettings({ mqttUsername: e.target.value })}
-              placeholder="codemaster"
+              placeholder="accesscontrol"
             />
           </div>
 

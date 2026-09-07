@@ -4,7 +4,7 @@ using AccessControl.Core.Models;
 namespace AccessControl.Engine.Channels;
 
 /// <summary>
-/// Defines an inbound channel for ingesting raw MQTT messages into CodeMaster engine.
+/// Defines an inbound channel for ingesting raw MQTT messages into AccessControl engine.
 /// </summary>
 public interface IMqttInboundChannel
 {

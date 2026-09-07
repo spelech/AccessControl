@@ -40,25 +40,9 @@ if (File.Exists(haOptionsPath))
     }
 }
 
-// Legacy database migration (codemaster.db -> accesscontrol.db)
-const string legacyDb = "codemaster.db";
-const string defaultDb = "accesscontrol.db";
-if (!File.Exists(defaultDb) && File.Exists(legacyDb))
-{
-    try
-    {
-        File.Copy(legacyDb, defaultDb);
-        Console.WriteLine($"[Migration] Successfully migrated legacy database '{legacyDb}' to '{defaultDb}'.");
-    }
-    catch (Exception ex)
-    {
-        Console.WriteLine($"[Warning] Failed to migrate legacy database: {ex.Message}");
-    }
-}
-
 // Connection & Database Services
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
-    ?? $"Data Source={defaultDb}";
+    ?? "Data Source=accesscontrol.db";
 builder.Services.AddSingleton<IDbConnectionFactory>(_ => new SqliteConnectionFactory(connectionString));
 builder.Services.AddScoped<DatabaseSeederService>();
 

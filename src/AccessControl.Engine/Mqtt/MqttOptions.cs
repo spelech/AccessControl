@@ -51,8 +51,7 @@ public sealed class MqttOptions
         "ring/#",
         "zigbee2mqtt/#",
         "homeassistant/#",
-        "accesscontrol/#",
-        "codemaster/#"
+        "accesscontrol/#"
     ];
 
     /// <summary>

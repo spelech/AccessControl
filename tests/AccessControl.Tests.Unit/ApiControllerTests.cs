@@ -17,7 +17,7 @@ public class TestWebApplicationFactory : WebApplicationFactory<Program>
 
     public TestWebApplicationFactory()
     {
-        _dbPath = Path.Combine(Path.GetTempPath(), $"codemaster_test_{Guid.NewGuid():N}.db");
+        _dbPath = Path.Combine(Path.GetTempPath(), $"accesscontrol_test_{Guid.NewGuid():N}.db");
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -372,14 +372,14 @@ public class ApiControllerTests : IClassFixture<TestWebApplicationFactory>
         var createdDoor = await doorRes.Content.ReadFromJsonAsync<AccessPoint>();
         Assert.NotNull(createdDoor);
 
-        // 2. Call codemaster__create_guest_pin
+        // 2. Call accesscontrol__create_guest_pin
         var createGuestCall = new McpRpcRequest
         {
             Id = 4,
             Method = "tools/call",
             Params = JsonSerializer.SerializeToElement(new
             {
-                name = "codemaster__create_guest_pin",
+                name = "accesscontrol__create_guest_pin",
                 arguments = new
                 {
                     name = "Dog Walker",
@@ -405,14 +405,14 @@ public class ApiControllerTests : IClassFixture<TestWebApplicationFactory>
         var guestUserId = guestDoc.RootElement.GetProperty("userId").GetString();
         Assert.NotNull(guestUserId);
 
-        // 3. Call codemaster__revoke_user
+        // 3. Call accesscontrol__revoke_user
         var revokeCall = new McpRpcRequest
         {
             Id = 5,
             Method = "tools/call",
             Params = JsonSerializer.SerializeToElement(new
             {
-                name = "codemaster__revoke_user",
+                name = "accesscontrol__revoke_user",
                 arguments = new
                 {
                     userId = guestUserId
@@ -439,12 +439,12 @@ public class ApiControllerTests : IClassFixture<TestWebApplicationFactory>
         var createdDoor = await doorRes.Content.ReadFromJsonAsync<AccessPoint>();
         Assert.NotNull(createdDoor);
 
-        // 2. Call codemaster__list_doors
+        // 2. Call accesscontrol__list_doors
         var listCall = new McpRpcRequest
         {
             Id = 6,
             Method = "tools/call",
-            Params = JsonSerializer.SerializeToElement(new { name = "codemaster__list_doors" })
+            Params = JsonSerializer.SerializeToElement(new { name = "accesscontrol__list_doors" })
         };
         var listRes = await _client.PostAsJsonAsync("/mcp/messages", listCall);
         Assert.Equal(HttpStatusCode.OK, listRes.StatusCode);
@@ -453,14 +453,14 @@ public class ApiControllerTests : IClassFixture<TestWebApplicationFactory>
         var listText = JsonSerializer.SerializeToElement(listRpcRes!.Result).GetProperty("content")[0].GetProperty("text").GetString();
         Assert.Contains("Garage Entry", listText);
 
-        // 3. Call codemaster__unlock_door
+        // 3. Call accesscontrol__unlock_door
         var unlockCall = new McpRpcRequest
         {
             Id = 7,
             Method = "tools/call",
             Params = JsonSerializer.SerializeToElement(new
             {
-                name = "codemaster__unlock_door",
+                name = "accesscontrol__unlock_door",
                 arguments = new { doorId = createdDoor!.Id, durationMinutes = 5 }
             })
         };
@@ -471,14 +471,14 @@ public class ApiControllerTests : IClassFixture<TestWebApplicationFactory>
         var unlockText = JsonSerializer.SerializeToElement(unlockRpcRes!.Result).GetProperty("content")[0].GetProperty("text").GetString();
         Assert.Contains("unlocked", unlockText);
 
-        // 4. Call codemaster__lock_door
+        // 4. Call accesscontrol__lock_door
         var lockCall = new McpRpcRequest
         {
             Id = 8,
             Method = "tools/call",
             Params = JsonSerializer.SerializeToElement(new
             {
-                name = "codemaster__lock_door",
+                name = "accesscontrol__lock_door",
                 arguments = new { doorId = createdDoor!.Id }
             })
         };
@@ -489,14 +489,14 @@ public class ApiControllerTests : IClassFixture<TestWebApplicationFactory>
         var lockText = JsonSerializer.SerializeToElement(lockRpcRes!.Result).GetProperty("content")[0].GetProperty("text").GetString();
         Assert.Contains("locked", lockText);
 
-        // 5. Call codemaster__get_access_logs
+        // 5. Call accesscontrol__get_access_logs
         var logsCall = new McpRpcRequest
         {
             Id = 9,
             Method = "tools/call",
             Params = JsonSerializer.SerializeToElement(new
             {
-                name = "codemaster__get_access_logs",
+                name = "accesscontrol__get_access_logs",
                 arguments = new { doorId = createdDoor!.Id, limit = 10 }
             })
         };

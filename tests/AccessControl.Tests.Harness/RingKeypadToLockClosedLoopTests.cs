@@ -41,7 +41,7 @@ public class RingKeypadToLockClosedLoopTests
 
         // Assert - HA event published
         var haEventMsg = await harness.WaitForPublishedMessageAsync(
-            "codemaster/door_august/event/state",
+            "accesscontrol/door_august/event/state",
             timeoutMs: 500);
         Assert.NotNull(haEventMsg);
         using var doc = JsonDocument.Parse(haEventMsg.Payload);

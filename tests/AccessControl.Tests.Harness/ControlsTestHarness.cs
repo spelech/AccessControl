@@ -34,7 +34,7 @@ public sealed class ControlsTestHarness : IDisposable
 
     public ControlsTestHarness()
     {
-        _dbPath = Path.Combine(Path.GetTempPath(), $"codemaster_harness_{Guid.NewGuid():N}.db");
+        _dbPath = Path.Combine(Path.GetTempPath(), $"accesscontrol_harness_{Guid.NewGuid():N}.db");
         _connectionFactory = new SqliteConnectionFactory($"Data Source={_dbPath}");
 
         var seeder = new DatabaseSeederService(_connectionFactory, NullLogger<DatabaseSeederService>.Instance);
@@ -223,7 +223,7 @@ public sealed class ControlsTestHarness : IDisposable
                 user = result.User?.Name,
                 timestamp = DateTime.UtcNow
             });
-            await Broker.PublishAsync($"codemaster/{context.Door.Id}/event/state", haPayload);
+            await Broker.PublishAsync($"accesscontrol/{context.Door.Id}/event/state", haPayload);
         }
         else
         {

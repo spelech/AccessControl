@@ -139,7 +139,7 @@ public class ZWaveWebSocketTransport : ILockTransport, IKeypadTransport
         {
             var newState = locked ? LockState.Locked : LockState.Unlocked;
             _nodeLockStates[nodeId] = newState;
-            OnLockStateChanged?.Invoke(new LockStateUpdatedEventArgs(deviceTarget, newState, "CodeMaster"));
+            OnLockStateChanged?.Invoke(new LockStateUpdatedEventArgs(deviceTarget, newState, "AccessControl"));
             return true;
         }
 

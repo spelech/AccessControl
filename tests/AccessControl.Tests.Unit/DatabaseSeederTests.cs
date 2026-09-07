@@ -16,7 +16,7 @@ public sealed class SqliteTestConnectionFactory : IDbConnectionFactory, IDisposa
 
     public SqliteTestConnectionFactory()
     {
-        _dbPath = Path.Combine(Path.GetTempPath(), $"codemaster_test_{Guid.NewGuid():N}.db");
+        _dbPath = Path.Combine(Path.GetTempPath(), $"accesscontrol_test_{Guid.NewGuid():N}.db");
         _innerFactory = new SqliteConnectionFactory($"Data Source={_dbPath}");
     }
 

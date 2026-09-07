@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-test.describe('CodeMaster Dashboard Layout & Touch Ergonomics Audit', () => {
+test.describe('AccessControl Dashboard Layout & Touch Ergonomics Audit', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForLoadState('networkidle');

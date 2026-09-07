@@ -238,7 +238,7 @@ public class MqttInboundConsumerService : BackgroundService
                         door = door.Name,
                         timestamp = DateTime.UtcNow
                     });
-                    _ = mqttClient.PublishAsync($"codemaster/{door.Id}/event/state", haPayload, retain: false, ct);
+                    _ = mqttClient.PublishAsync($"accesscontrol/{door.Id}/event/state", haPayload, retain: false, ct);
                 }
             }
             else
@@ -300,8 +300,8 @@ public class MqttInboundConsumerService : BackgroundService
         IDoorOperationService doorOps,
         IMqttClientService? mqttClient)
     {
-        // 1. Check direct standard telemetry topic: codemaster/{doorId}/lock/state
-        if (message.Topic.Equals($"codemaster/{door.Id}/lock/state", StringComparison.OrdinalIgnoreCase))
+        // 1. Check direct standard telemetry topic: accesscontrol/{doorId}/lock/state
+        if (message.Topic.Equals($"accesscontrol/{door.Id}/lock/state", StringComparison.OrdinalIgnoreCase))
         {
             var p = message.Payload.Trim().Trim('"').ToLowerInvariant();
             if (p is "locked" or "lock" or "255")
@@ -353,8 +353,8 @@ public class MqttInboundConsumerService : BackgroundService
         }
         else
         {
-            var cmdTopic = configuredTopic ?? $"codemaster/{door.Id}/lock/set";
-            var stateTopic = configuredTopic ?? $"codemaster/{door.Id}/lock/state";
+            var cmdTopic = configuredTopic ?? $"accesscontrol/{door.Id}/lock/set";
+            var stateTopic = configuredTopic ?? $"accesscontrol/{door.Id}/lock/state";
             var genericProvider = new GenericMqttLockProvider(cmdTopic, stateTopic, "LOCK", "UNLOCK", mqttClient);
             if (genericProvider.TryUpdateFromMessage(message))
             {
@@ -368,8 +368,8 @@ public class MqttInboundConsumerService : BackgroundService
         MqttInboundMessage message,
         IDoorOperationService doorOps)
     {
-        // 1. Direct standard contact topic: codemaster/{doorId}/sensor/state
-        if (message.Topic.Equals($"codemaster/{door.Id}/sensor/state", StringComparison.OrdinalIgnoreCase))
+        // 1. Direct standard contact topic: accesscontrol/{doorId}/sensor/state
+        if (message.Topic.Equals($"accesscontrol/{door.Id}/sensor/state", StringComparison.OrdinalIgnoreCase))
         {
             var p = message.Payload.Trim().Trim('"').ToUpperInvariant();
             if (p is "ON" or "OPEN" or "TRUE" or "1")

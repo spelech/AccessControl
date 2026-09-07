@@ -10,9 +10,9 @@ public static class Program
     {
         var mqttHost = Environment.GetEnvironmentVariable("MQTT_HOST") ?? "localhost";
         var mqttPort = int.TryParse(Environment.GetEnvironmentVariable("MQTT_PORT"), out var port) ? port : 1883;
-        var clientId = Environment.GetEnvironmentVariable("CLIENT_ID") ?? $"codemaster-sim-{Guid.NewGuid():N}";
+        var clientId = Environment.GetEnvironmentVariable("CLIENT_ID") ?? $"accesscontrol-sim-{Guid.NewGuid():N}";
 
-        Console.WriteLine($"[SIMULATOR] Starting CodeMaster Hardware Simulator...");
+        Console.WriteLine($"[SIMULATOR] Starting AccessControl Hardware Simulator...");
         Console.WriteLine($"[SIMULATOR] Target MQTT: {mqttHost}:{mqttPort} (ClientId: {clientId})");
 
         var factory = new MqttFactory();
@@ -70,7 +70,7 @@ public static class Program
                 }
 
                 // 3. Simulator Trigger Commands
-                if (topic.Equals("codemaster/simulator/command", StringComparison.OrdinalIgnoreCase))
+                if (topic.Equals("accesscontrol/simulator/command", StringComparison.OrdinalIgnoreCase))
                 {
                     using var doc = JsonDocument.Parse(payload);
                     var root = doc.RootElement;
@@ -97,7 +97,7 @@ public static class Program
                         var state = root.TryGetProperty("state", out var stateProp) ? stateProp.GetString() : "closed";
                         var isClosed = string.Equals(state, "closed", StringComparison.OrdinalIgnoreCase);
 
-                        var sensorTopic = $"codemaster/{door}/sensor/state";
+                        var sensorTopic = $"accesscontrol/{door}/sensor/state";
                         var sensorPayload = isClosed ? "OFF" : "ON";
                         await client.PublishStringAsync(sensorTopic, sensorPayload);
                         Console.WriteLine($"[SIMULATOR] Injected door sensor state: {sensorTopic} -> {sensorPayload}");
@@ -125,14 +125,14 @@ public static class Program
                     await client.SubscribeAsync(new MqttClientSubscribeOptionsBuilder()
                         .WithTopicFilter("zwave/+/door_lock/+/targetState/set")
                         .WithTopicFilter("zwave/+/user_code/+/set")
-                        .WithTopicFilter("codemaster/simulator/command")
-                        .WithTopicFilter("codemaster/+/lock/set")
+                        .WithTopicFilter("accesscontrol/simulator/command")
+                        .WithTopicFilter("accesscontrol/+/lock/set")
                         .Build(), cts.Token);
 
                     Console.WriteLine($"[SIMULATOR] Subscribed to lock, user code, and simulator control topics.");
 
                     // Publish ready heartbeat
-                    await client.PublishStringAsync("codemaster/simulator/status", "ready");
+                    await client.PublishStringAsync("accesscontrol/simulator/status", "ready");
                 }
 
                 await Task.Delay(1000, cts.Token);

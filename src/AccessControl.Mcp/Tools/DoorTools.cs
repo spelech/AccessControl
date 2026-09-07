@@ -147,11 +147,7 @@ public class DoorTools : IDoorTools
     {
         try
         {
-            var normalizedName = toolName.StartsWith("codemaster__", StringComparison.OrdinalIgnoreCase)
-                ? "accesscontrol__" + toolName[12..]
-                : toolName;
-
-            return normalizedName switch
+            return toolName switch
             {
                 "accesscontrol__list_doors" => await ListDoorsAsync(ct),
                 "accesscontrol__unlock_door" => await UnlockDoorAsync(arguments, ct),
