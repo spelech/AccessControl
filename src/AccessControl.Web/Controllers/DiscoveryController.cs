@@ -27,4 +27,19 @@ public class DiscoveryController : ControllerBase
         var topics = _discoveryService.GetDiscoveredTopics(type);
         return Ok(topics);
     }
+
+    [HttpGet("sensors")]
+    public IActionResult GetDiscoveredContactSensors()
+    {
+        var sensors = _discoveryService.GetDiscoveredContactSensors();
+        return Ok(sensors);
+    }
+
+    [HttpGet("sniff")]
+    public IActionResult SniffActivity([FromQuery] DateTimeOffset? since)
+    {
+        var referenceTime = since ?? DateTimeOffset.UtcNow.AddSeconds(-15);
+        var result = _discoveryService.SniffActivity(referenceTime);
+        return Ok(result);
+    }
 }

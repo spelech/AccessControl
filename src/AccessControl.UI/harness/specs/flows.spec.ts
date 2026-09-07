@@ -61,18 +61,43 @@ test.describe('AccessControl UI Development & Flow Harness', () => {
     // 3. Fill door name
     await page.fill('input[placeholder*="Front Door"]', 'Front Entry Test');
 
-    // 4. Verify discovered Z-Wave locks button appears and can be selected
-    const lockNodeBtn = page.locator('button:has-text("Node 39")');
-    if (await lockNodeBtn.isVisible()) {
-      await lockNodeBtn.click();
+    // 4. Verify Direct Z-Wave JS toggle is selected
+    const directZWaveToggle = page.locator('button:has-text("Direct Z-Wave JS")');
+    await expect(directZWaveToggle).toBeVisible();
+    if (!(await directZWaveToggle.getAttribute('class'))?.includes('btn-primary')) {
+      await directZWaveToggle.click();
     }
+    await expect(directZWaveToggle).toHaveClass(/btn-primary/);
 
-    // 5. Verify auto-lock timer controls
+    // 5. Select Node 39 card
+    const node39Card = page.locator('[aria-label*="Node 39"], [role="button"]:has-text("Node 39"), button:has-text("Node 39")').first();
+    await expect(node39Card).toBeVisible();
+    await node39Card.click();
+
+    // 6. Assert zero MQTT leak: no MQTT topic input exists in DOM
+    await expect(page.locator('input[placeholder*="zwave/"]')).toHaveCount(0);
+
+    // 7. Assert Built-In Lock Keypad is active
+    const builtInKeypadBtn = page.locator('button:has-text("Built-In Keypad")');
+    await expect(builtInKeypadBtn).toBeVisible();
+    await expect(builtInKeypadBtn).toHaveClass(/btn-primary/);
+
+    // 8. Switch Contact Sensor to MQTT Contact and verify select has friendly options
+    const mqttContactBtn = page.locator('button:has-text("MQTT Contact")');
+    await expect(mqttContactBtn).toBeVisible();
+    await mqttContactBtn.click();
+
+    const sensorSelect = page.locator('select#contact-sensor-picker, select[aria-label="Discovered Contact Sensor"]');
+    await expect(sensorSelect).toBeVisible();
+    await expect(sensorSelect.locator('option').filter({ hasText: /Aqara|Contact/ }).first()).toBeAttached();
+
+    // 9. Verify Auto-Lock Engine is rendered
     await expect(page.locator('text=Auto-Lock Engine')).toBeVisible();
 
+    // 10. Capture screenshot
     await page.screenshot({ path: 'harness/output/03-door-setup-wizard.png' });
 
-    // 6. Close modal without saving
+    // 11. Close modal without saving
     await page.click('button[aria-label="Close dialog"]');
     await expect(page.locator('h2:has-text("1-Click Door Setup Wizard")')).not.toBeVisible();
   });
