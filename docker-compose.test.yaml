@@ -9,20 +9,20 @@ services:
     networks:
       - test-net
 
-  test-codemaster:
+  test-accesscontrol:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: test-codemaster
+    container_name: test-accesscontrol
     restart: unless-stopped
     ports:
       - "8155:8150"
     environment:
       - ASPNETCORE_URLS=http://+:8150
-      - ConnectionStrings__DefaultConnection=Data Source=/app/data/codemaster_test.db
+      - ConnectionStrings__DefaultConnection=Data Source=/app/data/accesscontrol_test.db
       - Mqtt__Host=test-mosquitto
       - Mqtt__Port=1883
-      - Mqtt__ClientId=test-codemaster
+      - Mqtt__ClientId=test-accesscontrol
     depends_on:
       - test-mosquitto
     networks:
@@ -31,7 +31,7 @@ services:
   test-simulator:
     build:
       context: .
-      dockerfile: tests/CodeMaster.Tests.Simulator/Dockerfile
+      dockerfile: tests/AccessControl.Tests.Simulator/Dockerfile
     container_name: test-simulator
     restart: unless-stopped
     environment:

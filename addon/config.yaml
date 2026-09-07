@@ -1,7 +1,7 @@
-name: "CodeMaster"
+name: "AccessControl"
 description: "Universal Access Control & Lock/Keypad Synchronization Engine"
 version: "1.5.0"
-slug: "codemaster"
+slug: "accesscontrol"
 arch:
   - amd64
 init: false
@@ -14,4 +14,4 @@ options:
 schema:
   mqtt_host: "str"
   mqtt_port: "int"
-image: "ghcr.io/spelech/codemaster"
+image: "ghcr.io/spelech/accesscontrol"

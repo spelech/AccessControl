@@ -63,23 +63,23 @@ jobs:
         with:
           node-version: 22
           cache: 'npm'
-          cache-dependency-path: src/CodeMaster.UI/package-lock.json
+          cache-dependency-path: src/AccessControl.UI/package-lock.json
 
       - name: Install dependencies
-        run: cd src/CodeMaster.UI && npm ci
+        run: cd src/AccessControl.UI && npm ci
 
       - name: Run ESLint
-        run: cd src/CodeMaster.UI && npm run lint
+        run: cd src/AccessControl.UI && npm run lint
 
       - name: Build frontend
-        run: cd src/CodeMaster.UI && npm run build
+        run: cd src/AccessControl.UI && npm run build
 
       - name: Run Vitest Unit Tests
-        run: cd src/CodeMaster.UI && (npm run test:coverage || npm test)
+        run: cd src/AccessControl.UI && (npm run test:coverage || npm test)
 
       - name: Run Playwright Layout Inspector
         run: |
-          cd src/CodeMaster.UI
+          cd src/AccessControl.UI
           npx playwright install --with-deps chromium
           npx playwright test
 
@@ -103,7 +103,7 @@ jobs:
         env:
           ASPNETCORE_URLS: "http://localhost:8150"
         run: |
-          dotnet run --project src/CodeMaster.Web/CodeMaster.Web.csproj --configuration Release --no-build &
+          dotnet run --project src/AccessControl.Web/AccessControl.Web.csproj --configuration Release --no-build &
           APP_PID=$!
           echo "Server started with PID $APP_PID"
 

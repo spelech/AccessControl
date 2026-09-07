@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-CodeMaster Release & Quality Verification Engine
+AccessControl Release & Quality Verification Engine
 Validates version consistency across .NET, Add-on, and Frontend targets,
 markdown relative links and anchors, and optional test suite execution.
 Supports --ci and --skip-tests flags.
@@ -77,8 +77,8 @@ def check_version_synchronization(root_dir: Path) -> Tuple[bool, Optional[str]]:
         else:
             print("  ⚠️  addon/CHANGELOG.md has no ## [X.Y.Z] entry")
 
-    # 4. src/CodeMaster.UI/package.json (if present)
-    pkg_path = root_dir / "src" / "CodeMaster.UI" / "package.json"
+    # 4. src/AccessControl.UI/package.json (if present)
+    pkg_path = root_dir / "src" / "AccessControl.UI" / "package.json"
     if pkg_path.exists():
         content = pkg_path.read_text(encoding="utf-8")
         match = re.search(r'"version":\s*"([^"]+)"', content)
@@ -210,7 +210,7 @@ def run_tests(root_dir: Path) -> bool:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="CodeMaster Release & Quality Verification Engine")
+    parser = argparse.ArgumentParser(description="AccessControl Release & Quality Verification Engine")
     parser.add_argument("--skip-tests", action="store_true", help="Skip test suite execution")
     parser.add_argument("--ci", action="store_true", help="CI execution mode")
     args = parser.parse_args()

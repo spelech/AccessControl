@@ -1,14 +1,14 @@
-# CodeMaster Agents Guide
+# AccessControl Agents Guide
 
-This document provides mandatory architectural guidelines, testing conventions, and execution rules for AI coding agents working in the `CodeMaster` repository.
+This document provides mandatory architectural guidelines, testing conventions, and execution rules for AI coding agents working in the `AccessControl` repository.
 
 ---
 
 ## 🏛️ System Overview & Architecture
 
-**CodeMaster** is a high-performance .NET 10 and React 19 containerized access control and lock/keypad management engine, designed as an open-source grade, scalable replacement for Keymaster with zero Home Assistant entity bloat.
+**AccessControl** is a high-performance .NET 10 and React 19 containerized access control and lock/keypad management engine, designed as an open-source grade, scalable replacement for Keymaster with zero Home Assistant entity bloat.
 
-- **Backend Runtime**: .NET 10 (`net10.0`), C# 13, `<Nullable>enable</Nullable>`, `<ImplicitUsings>enable</ImplicitUsings>`, `codemaster.slnx`.
+- **Backend Runtime**: .NET 10 (`net10.0`), C# 13, `<Nullable>enable</Nullable>`, `<ImplicitUsings>enable</ImplicitUsings>`, `AccessControl.slnx`.
 - **Database & Persistence**: Embedded SQLite in **Write-Ahead Logging (WAL)** mode (`PRAGMA journal_mode = WAL;`) using **Dapper** with parameterized scripts and idempotent migrations in `DatabaseSeederService.cs`.
 - **MQTT Pipeline**: `System.Threading.Channels.Channel<MqttInboundMessage>` handles high-throughput ingestion from Mosquitto via `MQTTnet` 4.x.
 - **Provider Abstraction**:
@@ -16,9 +16,9 @@ This document provides mandatory architectural guidelines, testing conventions, 
   - `IKeypadProvider`: `RingMqttKeypadProvider` (Stateless Event), `BuiltInLockKeypadProvider` (Hardware Slotted), `GenericMqttKeypadProvider`.
   - `IDoorSensorProvider`: `MqttContactSensorProvider`.
   - `INotificationDispatcher`: `HomeAssistantDiscoveryService`, `AppriseNotificationDispatcher`.
-- **Frontend SPA**: React 19, TypeScript strict mode, Zustand domain stores, pure CSS custom properties (`theme.css`), compiled into `src/CodeMaster.Web/wwwroot/`.
+- **Frontend SPA**: React 19, TypeScript strict mode, Zustand domain stores, pure CSS custom properties (`theme.css`), compiled into `src/AccessControl.Web/wwwroot/`.
 - **Dynamic Ingress**: Fully supports Home Assistant Ingress via dynamic `X-Ingress-Path` header / `<meta name="base-path">` resolution.
-- **Model Context Protocol (MCP)**: Implements the **2026-07-28 specification** at `/mcp/sse` (with `2024-11-05` fallback), exposing 6 tools: `codemaster__list_doors`, `codemaster__unlock_door`, `codemaster__lock_door`, `codemaster__create_guest_pin`, `codemaster__revoke_user`, `codemaster__get_access_logs`.
+- **Model Context Protocol (MCP)**: Implements the **2026-07-28 specification** at `/mcp/sse` (with `2024-11-05` fallback), exposing 6 tools: `accesscontrol__list_doors`, `accesscontrol__unlock_door`, `accesscontrol__lock_door`, `accesscontrol__create_guest_pin`, `accesscontrol__revoke_user`, `accesscontrol__get_access_logs`.
 
 ---
 
@@ -30,7 +30,7 @@ This document provides mandatory architectural guidelines, testing conventions, 
    - Work on fresh feature branches off `develop`.
    - Use `develop` as the active integration branch before production release on `main`.
    - Commit using **atomic Conventional Commits** (`feat:`, `fix:`, `test:`, `docs:`, `chore:`).
-   - Git remote: `git@github.com:spelech/CodeMaster.git`.
+   - Git remote: `git@github.com:spelech/AccessControl.git`.
 3. **Container Immutability**:
    - **NEVER** hot-patch or edit files in running containers. Deploy strictly via built images (`docker compose up -d --build`).
 4. **SOLID & Code Modularity**:
@@ -51,19 +51,19 @@ This document provides mandatory architectural guidelines, testing conventions, 
 
 ```bash
 # Build whole solution
-dotnet build codemaster.slnx
+dotnet build AccessControl.slnx
 
 # Run all .NET unit & closed-loop harness tests
-dotnet test codemaster.slnx
+dotnet test AccessControl.slnx
 
 # Run frontend tests & linting
-cd src/CodeMaster.UI && npm test && npm run lint
+cd src/AccessControl.UI && npm test && npm run lint
 
 # Build frontend production bundle into wwwroot
-cd src/CodeMaster.UI && npm run build
+cd src/AccessControl.UI && npm run build
 
 # Run Playwright layout audit
-cd src/CodeMaster.UI && npx playwright test
+cd src/AccessControl.UI && npx playwright test
 
 # Run Release SemVer & Markdown Link Verification
 python3 verify_release.py --ci --skip-tests

@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to the CodeMaster Home Assistant Add-on will be documented in this file.
+All notable changes to the AccessControl Home Assistant Add-on will be documented in this file.
 
 ## [1.5.0] - 2026-09-06
 
@@ -16,7 +16,7 @@ All notable changes to the CodeMaster Home Assistant Add-on will be documented i
 
 ### Added
 - In-modal PIN validation error alert banner (`role="alert"`) and visual border highlighting in `UserManagement` UI with auto-dismiss on keystroke.
-- Strict 4–8 numeric digit PIN validation in REST API (`UsersController.SetPin`) and MCP tool (`codemaster__create_guest_pin`).
+- Strict 4–8 numeric digit PIN validation in REST API (`UsersController.SetPin`) and MCP tool (`accesscontrol__create_guest_pin`).
 - Closed-loop test harness assertions replacing trivial checks: live SSE event delivery stream tests, hardware slot error handling, and non-numeric credential rejection tests.
 
 ### Fixed
@@ -54,7 +54,7 @@ All notable changes to the CodeMaster Home Assistant Add-on will be documented i
 ## [1.0.0] - 2026-09-06
 
 ### Added
-- Initial release of CodeMaster Home Assistant Add-on.
+- Initial release of AccessControl Home Assistant Add-on.
 - Full Home Assistant Ingress integration (`ingress: true`) on port 8150.
 - Native 64-bit container support (`linux/amd64`).
 - Automatic MQTT broker connection to `core-mosquitto:1883` with schema validation.

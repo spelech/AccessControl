@@ -1,19 +1,19 @@
-# 🏛️ Architecture: CodeMaster
+# 🏛️ Architecture: AccessControl
 
 ## Universal Access Control & Smart Lock/Keypad Synchronization Platform
 
-CodeMaster is a high-performance, containerized access control and physical lock/keypad management daemon built with **.NET 10 (`net10.0`)**, **C# 13**, **SQLite WAL**, and a modern **React 19 + TypeScript + Zustand** frontend. It replaces legacy integrations like Keymaster by adopting the **Frigate architecture pattern**: shifting complex state machines, hardware slot synchronization, scheduling, and credential evaluation into an isolated daemon while exposing a minimal footprint to Home Assistant.
+AccessControl is a high-performance, containerized access control and physical lock/keypad management daemon built with **.NET 10 (`net10.0`)**, **C# 13**, **SQLite WAL**, and a modern **React 19 + TypeScript + Zustand** frontend. It replaces legacy integrations like Keymaster by adopting the **Frigate architecture pattern**: shifting complex state machines, hardware slot synchronization, scheduling, and credential evaluation into an isolated daemon while exposing a minimal footprint to Home Assistant.
 
 ---
 
 ## 1. System Overview
 
-CodeMaster solves the chronic instability, entity explosion, and hardware limitations of previous lock managers:
+AccessControl solves the chronic instability, entity explosion, and hardware limitations of previous lock managers:
 
 - **Dual Deployment Model**:
   - **Container-First (Primary)**: Standard Docker container running in Docker Compose or Kubernetes, binding to port `8150`, connecting over MQTT to Mosquitto.
   - **Home Assistant Add-on (Phase 2 Ready)**: Ingress-ready container (`addon/config.yaml`) negotiating with the Home Assistant Supervisor MQTT broker. The frontend and backend dynamically support `X-Ingress-Path` header rewriting.
-- **>98% Entity Bloat Reduction**: Eliminates Keymaster's ~501 entities per lock. CodeMaster registers only **3–4 clean entities per door** via Home Assistant MQTT Discovery (1 Lock Proxy, 1 `EventEntity`, 1 Door Contact Sensor, 1 Auto-Lock Switch).
+- **>98% Entity Bloat Reduction**: Eliminates Keymaster's ~501 entities per lock. AccessControl registers only **3–4 clean entities per door** via Home Assistant MQTT Discovery (1 Lock Proxy, 1 `EventEntity`, 1 Door Contact Sensor, 1 Auto-Lock Switch).
 - **Decoupled Architecture**: Inbound MQTT messages stream into an in-memory `System.Threading.Channels.Channel<MqttInboundMessage>`, isolating transport I/O from policy evaluation.
 - **Pluggable Providers**: Supports disparate hardware configurations—such as pairing an external **Ring Keypad** with an internal **August Deadbolt**, or synchronizing hardware PIN slots on a **Schlage Z-Wave Deadbolt**.
 - **Model Context Protocol (MCP)**: Native embedded MCP server (`/mcp` and `/sse`) allowing AI coding agents and home automation bots to audit doors, provision guest PINs, and inspect security telemetry.
@@ -26,13 +26,13 @@ CodeMaster solves the chronic instability, entity explosion, and hardware limita
 2. **Relational Persistence over Heavy ORMs**: Zero external DB dependencies. Utilizes embedded **SQLite WAL** (`PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL; PRAGMA busy_timeout = 5000; PRAGMA foreign_keys = ON;`) coupled with **Dapper** and parameterized SQL queries for predictable sub-millisecond execution.
 3. **Decoupled Producer-Consumer Pipeline**: MQTT ingestion is decoupled via bounded `System.Threading.Channels.Channel<MqttInboundMessage>`, preventing transport delays from stalling state evaluation or DB writes.
 4. **Pluggable, Capability-Driven Hardware Providers**: Clear interface boundaries (`ILockProvider`, `IKeypadProvider`, `IDoorSensorProvider`) allow arbitrary combinations of locks, keypads, and contact sensors regardless of protocol (Z-Wave, Zigbee, Ring, MQTT, Virtual).
-5. **Zero Entity Bloat in Home Assistant**: Follows the Frigate pattern—rich state remains inside CodeMaster, publishing only 3–4 standard MQTT discovery entities per door and emitting discrete `EventEntity` state notifications.
+5. **Zero Entity Bloat in Home Assistant**: Follows the Frigate pattern—rich state remains inside AccessControl, publishing only 3–4 standard MQTT discovery entities per door and emitting discrete `EventEntity` state notifications.
 6. **Dual Notification Dispatch**: Real-time alerts dispatch concurrently through Home Assistant MQTT events (`event.<door>_access`) and direct webhook alerts to the local **Apprise** notification gateway.
 7. **Universal Auto-Lock & Contact Sensor Intelligence**: Resilient state machine tracking door open/closed contact states with independent Day/Night countdown timers and automatic retry on mechanical lock jams.
 8. **Model Context Protocol (MCP First)**: First-class MCP tool endpoints allowing autonomous agents to query doors, provision temporary credentials, and inspect audit logs via structured protocols.
 9. **100% UI-Driven Configuration & Ingress-Ready UX**: Zero YAML or code editing required for end users. Pure React 19 + TypeScript (strict) + Zustand SPA supporting standalone browsing and Home Assistant Ingress embedding.
 10. **SOLID, Modularity & Strict Interface Segregation**: Every class adheres to single responsibility (<500 LOC per file); semantic role-based naming (banning `*Manager`, `*Helper`); narrow `I*` client-focused interfaces for 100% testability; and ubiquitous `CancellationToken` propagation.
-11. **Controls & Simulation Testing Mindset**: Dedicated test harnesses (`CodeMaster.Tests.Harness`), synthetic MQTT broker loopbacks, simulated hardware drivers (`CodeMaster.Tests.Simulator`), and Playwright 4-point UX audits targeting >80% coverage.
+11. **Controls & Simulation Testing Mindset**: Dedicated test harnesses (`AccessControl.Tests.Harness`), synthetic MQTT broker loopbacks, simulated hardware drivers (`AccessControl.Tests.Simulator`), and Playwright 4-point UX audits targeting >80% coverage.
 12. **4-Stage CI/CD Quality Gates & Living Documentation**: Automated release verification (`verify_release.py`), parallel build and test execution, integration smoke testing, and living architecture specifications maintained in-tree.
 
 ---
@@ -48,8 +48,8 @@ flowchart TD
         Agent["AI Agents / MCP Clients<br/>(via /mcp and /sse)"]
     end
 
-    subgraph Host["CodeMaster Container (.NET 10 Daemon)"]
-        subgraph WebLayer["CodeMaster.Web & Mcp"]
+    subgraph Host["AccessControl Container (.NET 10 Daemon)"]
+        subgraph WebLayer["AccessControl.Web & Mcp"]
             Controllers["REST Controllers & Ingress Middleware"]
             McpServer["Embedded MCP Server"]
             Hub["SSE Live Event Broadcaster"]
@@ -60,7 +60,7 @@ flowchart TD
             Channel["Channel&lt;MqttInboundMessage&gt;"]
         end
 
-        subgraph Engine["CodeMaster.Engine"]
+        subgraph Engine["AccessControl.Engine"]
             PolicyEval["AccessPolicyEvaluator"]
             SlotWorker["HardwareSlotSyncWorker"]
             AutoLockWorker["AutoLockWorker"]
@@ -73,10 +73,10 @@ flowchart TD
             SensorProv["IDoorSensorProvider<br/>(MQTT Contact, Home Assistant State)"]
         end
 
-        subgraph Persistence["CodeMaster.Data"]
+        subgraph Persistence["AccessControl.Data"]
             DbFactory["IDbConnectionFactory (SqliteConnectionFactory)"]
             Dapper["Dapper Repositories (User, AccessPoint, AuditLog)"]
-            SqliteDB[("SQLite WAL Database<br/>(codemaster.db)")]
+            SqliteDB[("SQLite WAL Database<br/>(accesscontrol.db)")]
         end
     end
 
@@ -116,7 +116,7 @@ flowchart TD
 
 ### 4.1 Flow A: Standalone Keypad -> Separate Lock (Ring Keypad -> August Deadbolt)
 
-This scenario demonstrates a stateless event-driven keypad triggering an independent smart lock through CodeMaster's policy evaluation engine.
+This scenario demonstrates a stateless event-driven keypad triggering an independent smart lock through AccessControl's policy evaluation engine.
 
 ```mermaid
 sequenceDiagram
@@ -157,7 +157,7 @@ sequenceDiagram
         ZWave->>Deadbolt: Motor retracts deadbolt
     and Notify Home Assistant
         Engine->>Notifier: DispatchAccessEventAsync(Steve, 'Unlocked', 'RingKeypad')
-        Notifier->>Broker: Publish homeassistant/event/codemaster/side_door/state { user: "Steve", method: "RingKeypad" }
+        Notifier->>Broker: Publish homeassistant/event/accesscontrol/side_door/state { user: "Steve", method: "RingKeypad" }
         Broker->>HA: Trigger event.side_door_access
     and Dispatch Push Notification
         Engine->>Notifier: DispatchAppriseAlertAsync(...)
