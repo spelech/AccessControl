@@ -8,7 +8,11 @@
     "build": "tsc -b && vite build",
     "lint": "eslint . --max-warnings 0",
     "test": "vitest run",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "harness": "playwright test --config harness/playwright.harness.config.ts && node harness/publish-report.js",
+    "harness:flows": "playwright test --config harness/playwright.harness.config.ts",
+    "harness:cdp": "node harness/launch-cdp.js",
+    "harness:publish": "node harness/publish-report.js"
   },
   "dependencies": {
     "lucide-react": "^1.16.0",

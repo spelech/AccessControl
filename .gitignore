@@ -7,6 +7,8 @@ node_modules/
 coverage/
 test-results/
 playwright-report/
+src/AccessControl.UI/harness/output/
+src/AccessControl.UI/harness/html-report/
 
 # Database files
 *.db
