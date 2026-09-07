@@ -75,7 +75,7 @@ public class ApiControllerTests : IClassFixture<TestWebApplicationFactory>
         var content = await response.Content.ReadFromJsonAsync<JsonElement>();
         var version = content.GetProperty("version").GetString();
         Assert.NotNull(version);
-        Assert.StartsWith("1.", version);
+        Assert.StartsWith("2.", version);
     }
 
     [Fact]
