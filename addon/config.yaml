@@ -1,6 +1,6 @@
 name: "AccessControl"
 description: "Universal Access Control & Lock/Keypad Synchronization Engine"
-version: "1.5.0"
+version: "2.0.0"
 slug: "accesscontrol"
 arch:
   - amd64

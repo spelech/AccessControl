@@ -2,6 +2,15 @@
 
 All notable changes to the AccessControl Home Assistant Add-on will be documented in this file.
 
+## [2.0.0] - 2026-09-07
+
+### Changed
+- **BREAKING**: Renamed entire platform from CodeMaster to AccessControl with zero legacy fallbacks.
+- **BREAKING**: Renamed Model Context Protocol (MCP) tool suite from `codemaster__*` to `accesscontrol__*`.
+- **BREAKING**: Migrated standard MQTT telemetry, command, sensor, and Home Assistant event topics from `codemaster/*` to `accesscontrol/*`.
+- **BREAKING**: Default database migrated to `accesscontrol.db` with clean schema initialization.
+- Rebranded frontend UI, documentation, test suites, simulator, and container artifacts to AccessControl.
+
 ## [1.5.0] - 2026-09-06
 
 ### Added
